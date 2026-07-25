@@ -72,9 +72,10 @@ class ResearchRepository(
     private fun looksLikeJsonEcho(s: String): Boolean = s.startsWith("{") && s.endsWith("}")
 
     private fun groundedFallback(results: List<SearchResult>): String {
-        val outlets = results.joinToString(", ") { it.sourceName }.ifBlank { "a few sources" }
-        return "I found coverage from $outlets. Read at least two of them, check who published each and " +
-            "how recent it is, and see whether independent outlets agree before you trust or share this."
+        val outlets = results.map { it.sourceName }.distinct().joinToString(", ").ifBlank { "a few sources" }
+        return "I found ${results.size} result${if (results.size == 1) "" else "s"} from $outlets. Read at " +
+            "least two, check who published each and how recent it is, and see whether independent outlets " +
+            "agree before you trust or share this."
     }
 
     private fun noSourcesCoaching(input: String): String =
