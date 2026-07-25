@@ -8,7 +8,8 @@ import kotlinx.serialization.Serializable
 enum class Ownership {
     @SerialName("public") PUBLIC,     // public-service broadcaster (e.g. ARD/BBC/NPR)
     @SerialName("private") PRIVATE,   // privately/commercially owned
-    @SerialName("state") STATE        // state-controlled (treat with extra scrutiny)
+    @SerialName("state") STATE,       // state-controlled (treat with extra scrutiny)
+    @SerialName("unknown") UNKNOWN    // outlet not in our directory — verify who runs it
 }
 
 /**

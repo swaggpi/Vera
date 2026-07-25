@@ -21,9 +21,20 @@ Voice (AndroidSpeechService) + Wikipedia search are real but only exercisable on
     returns grounded coaching + source cards. Voice recognizer reported available.
   - Found + fixed a real bug on-device (duplicate outlet names in research fallback).
 
-== NOT YET VERIFIED (needs the Gemma model) ==
-  - Real Gemma inference (MediaPipeLlmEngine is a documented stub; DI binds FakeLlmEngine).
-    This is why briefing summaries/coach text are generic — real Gemma replaces that.
+== NEW (this session) ==
+  - Research quality overhaul: DuckDuckGo multi-domain + Wikipedia (MultiSearchProvider),
+    relevance ranking + one-per-domain diverse selection, OutletDirectory (ownership/leaning/
+    press-freedom), per-source summary + bias notes, diversity line. Briefing now round-robins
+    across sources with an outlet/leaning chip per card. All logic unit-tested (30 tests green).
+  - Real on-device model: MediaPipeLlmEngine (tasks-genai) + SwitchableLlmEngine (Fake→real) +
+    ModelManager one-tap download to filesDir + ModelBanner UI on Briefing. Default model is the
+    UNGATED Qwen2.5-1.5B-Instruct .task (HTTP 200, 1.6 GB, Apache-2.0) → true one-tap, no token.
+    Gemma is a drop-in via ModelCatalog (gated → set TOKEN). ChatML prompt template for Qwen.
+
+== NOT YET VERIFIED (needs the phone unlocked to run the download) ==
+  - The actual 1.6 GB download + on-device inference. Mechanism + URL verified (200/ungated);
+    app builds + installs. Tap "Download Vera's brain" on Briefing to run it. Until then the app
+    uses FakeLlmEngine, so summaries/coach text are generic placeholders.
 
 == NEXT TASKS (pick ONE, implement end-to-end, test, commit) ==
   1. Wire MediaPipeLlmEngine + Gemma model side-load flow (device verify) — biggest unlock.

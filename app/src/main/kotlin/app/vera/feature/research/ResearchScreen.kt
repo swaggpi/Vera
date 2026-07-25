@@ -39,11 +39,15 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
+import app.vera.core.model.Ownership
+import app.vera.core.research.AnalyzedSource
+import app.vera.core.research.Leaning
 import app.vera.core.research.ResearchRepository
 import app.vera.core.research.ResearchResult
-import app.vera.core.research.SearchResult
 import app.vera.core.speech.SpeechService
 import app.vera.ui.theme.Amber
+import app.vera.ui.theme.Rose
+import app.vera.ui.theme.Teal
 import app.vera.ui.theme.Violet
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -146,9 +150,12 @@ fun ResearchScreen(viewModel: ResearchViewModel = hiltViewModel()) {
                     Text(result.coaching, color = MaterialTheme.colorScheme.onSurface,
                         fontSize = 14.sp, lineHeight = 20.sp, modifier = Modifier.padding(top = 4.dp))
                     if (result.sources.isNotEmpty()) {
-                        Text("SOURCES", color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        Text("SOURCES · ${result.diversityNote}", color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 10.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 14.dp))
                         result.sources.forEach { s -> SourceCard(s) { openUrl(context, s.url) } }
+                        Text("Bias/leaning labels are approximate and for reflection, not definitive ratings.",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.sp,
+                            modifier = Modifier.padding(top = 10.dp))
                     }
                 }
             }
@@ -157,19 +164,47 @@ fun ResearchScreen(viewModel: ResearchViewModel = hiltViewModel()) {
 }
 
 @Composable
-private fun SourceCard(s: SearchResult, onClick: () -> Unit) {
+private fun SourceCard(s: AnalyzedSource, onClick: () -> Unit) {
     Column(
         Modifier.fillMaxWidth().padding(top = 8.dp).clip(RoundedCornerShape(10.dp))
             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
             .clickable(onClick = onClick).padding(12.dp)
     ) {
-        Text(s.title, color = MaterialTheme.colorScheme.onSurface, fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold)
-        Text(s.sourceName, color = Violet, fontSize = 11.sp)
-        if (s.snippet.isNotBlank()) {
-            Text(s.snippet, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp,
-                maxLines = 2, modifier = Modifier.padding(top = 4.dp))
+        Text(s.title, color = MaterialTheme.colorScheme.onSurface, fontSize = 13.5.sp,
+            fontWeight = FontWeight.SemiBold, lineHeight = 18.sp)
+        Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(s.outletName, color = Violet, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+            Chip(ownershipLabel(s.ownership), ownershipColor(s.ownership))
+            if (s.leaning != Leaning.UNKNOWN) Chip(s.leaning.label, Amber)
         }
+        if (s.summary.isNotBlank()) {
+            Text(s.summary, color = MaterialTheme.colorScheme.onSurface, fontSize = 12.5.sp,
+                modifier = Modifier.padding(top = 6.dp), lineHeight = 17.sp)
+        }
+        Text("⚖ ${s.biasNote}", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.5.sp,
+            modifier = Modifier.padding(top = 6.dp), lineHeight = 16.sp)
     }
+}
+
+@Composable
+private fun Chip(text: String, color: androidx.compose.ui.graphics.Color) {
+    Text(text, color = color, fontSize = 10.sp, fontWeight = FontWeight.Medium,
+        modifier = Modifier.padding(start = 8.dp).clip(RoundedCornerShape(6.dp))
+            .background(color.copy(alpha = 0.15f)).padding(horizontal = 7.dp, vertical = 2.dp))
+}
+
+private fun ownershipLabel(o: Ownership) = when (o) {
+    Ownership.PUBLIC -> "Public"
+    Ownership.PRIVATE -> "Private"
+    Ownership.STATE -> "State"
+    Ownership.UNKNOWN -> "Unrated"
+}
+
+private fun ownershipColor(o: Ownership) = when (o) {
+    Ownership.PUBLIC -> Teal
+    Ownership.PRIVATE -> Violet
+    Ownership.STATE -> Rose
+    Ownership.UNKNOWN -> androidx.compose.ui.graphics.Color(0xFF9AA3B8)
 }
 
 private fun openUrl(context: android.content.Context, url: String) {

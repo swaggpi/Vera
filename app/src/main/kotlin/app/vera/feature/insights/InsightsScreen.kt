@@ -118,4 +118,5 @@ private fun ownershipLabel(o: Ownership) = when (o) {
     Ownership.PUBLIC -> "Public broadcasters"
     Ownership.PRIVATE -> "Private"
     Ownership.STATE -> "State-controlled"
+    Ownership.UNKNOWN -> "Unrated"
 }

@@ -21,9 +21,11 @@ Rule: a box is `[x]` only when its unit tests pass (`bash run-tests.sh`). Device
 - [x] Source picker UI (ownership + press-freedom tier chips)
 - [x] Briefing UI: cards, interactive quiz, streak header
 - [x] Offline `SampleData` fallback when feeds are blocked
-- [ ] Wire real Gemma (`MediaPipeLlmEngine`) `(device)`
+- [x] Round-robin briefing across selected sources + outlet/leaning chip per card
+- [x] Real on-device model (`MediaPipeLlmEngine`) + one-tap in-app download (ungated Qwen2.5-1.5B .task)
+- [ ] On-device inference confirmed on hardware `(device — pending download run)`
 - [ ] WorkManager 2×/day briefing + notification scheduling
-- [ ] Persist "read" articles to `read_log` for the diet meter
+- [x] Persist "read" articles to `read_log` for the diet meter
 - [ ] Morning/evening slot content differentiation
 - [ ] Instrumented UI test: complete a briefing → streak increments `(device)`
 
@@ -34,11 +36,13 @@ Rule: a box is `[x]` only when its unit tests pass (`bash run-tests.sh`). Device
 - [ ] Wire spaced repetition scheduling into training (SM-2 logic + tests done, not yet persisted)
 
 ## P3 — "Check what you heard" research assistant
-- [x] `SearchProvider` + `WikipediaSearchProvider` (keyless) + `FakeSearchProvider` + tests
-- [x] `ResearchRepository`: query → search → grounded, cited coaching (+ fallbacks) + tests
+- [x] `SearchProvider` + `WikipediaSearchProvider` + `DuckDuckGoSearchProvider` + `MultiSearchProvider`
+- [x] Relevance ranking + domain-diverse selection (not first-N) + tests
+- [x] `OutletDirectory`: domain → ownership + (approx) leaning + press-freedom; per-source bias notes + tests
+- [x] Per-source one-line summary (Gemma when ready, snippet fallback)
 - [x] Voice input (`SpeechRecognizer`) + TTS output via `AndroidSpeechService` `(device)`
-- [x] Research UI with source cards + read-aloud
-- [ ] `BraveSearchProvider`/`TavilySearchProvider` (API key) for live news-claim checking
+- [x] Research UI: outlet + leaning/ownership chips, summary, bias note, diversity line
+- [ ] `BraveSearchProvider`/`TavilySearchProvider` (API key) for even better news-claim recall
 
 ## P4 — Insights & extras
 - [x] News-diet / echo-chamber meter UI, fed by `read_log` on briefing completion

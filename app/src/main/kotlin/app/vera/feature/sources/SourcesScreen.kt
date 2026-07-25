@@ -131,12 +131,14 @@ private fun ownershipLabel(o: Ownership) = when (o) {
     Ownership.PUBLIC -> "Public broadcaster"
     Ownership.PRIVATE -> "Private"
     Ownership.STATE -> "State-controlled"
+    Ownership.UNKNOWN -> "Unrated"
 }
 
 private fun ownershipColor(o: Ownership) = when (o) {
     Ownership.PUBLIC -> Teal
     Ownership.PRIVATE -> Violet
     Ownership.STATE -> Rose
+    Ownership.UNKNOWN -> Violet
 }
 
 private fun pressFreedomLabel(tier: Int) = when (tier) {

@@ -3,14 +3,16 @@ package app.vera.di
 import android.content.Context
 import androidx.room.Room
 import app.vera.core.briefing.BriefingGenerator
-import app.vera.core.llm.FakeLlmEngine
 import app.vera.core.llm.LlmEngine
 import app.vera.core.news.NewsRepository
+import app.vera.core.research.MultiSearchProvider
 import app.vera.core.research.ResearchRepository
 import app.vera.core.research.SearchProvider
 import app.vera.core.speech.SpeechService
 import app.vera.core.training.SiftCoach
 import app.vera.data.AndroidSpeechService
+import app.vera.data.DuckDuckGoSearchProvider
+import app.vera.data.ModelManager
 import app.vera.data.NewsRepositoryImpl
 import app.vera.data.ProgressDao
 import app.vera.data.ProgressRepository
@@ -18,6 +20,7 @@ import app.vera.data.ReadLogDao
 import app.vera.data.ReadLogRepository
 import app.vera.data.SettingsRepository
 import app.vera.data.SourceCatalogProvider
+import app.vera.data.SwitchableLlmEngine
 import app.vera.data.VeraDatabase
 import app.vera.data.WikipediaSearchProvider
 import dagger.Module
@@ -63,15 +66,25 @@ object AppModule {
     @Provides @Singleton
     fun newsRepository(client: OkHttpClient): NewsRepository = NewsRepositoryImpl(client)
 
-    // On-device model: FakeLlmEngine until the Gemma .task is side-loaded (see MediaPipeLlmEngine).
+    // On-device model: FakeLlmEngine until the Gemma .task is downloaded, then real MediaPipe/Gemma.
     @Provides @Singleton
-    fun llmEngine(): LlmEngine = FakeLlmEngine()
+    fun switchableEngine(@ApplicationContext ctx: Context): SwitchableLlmEngine = SwitchableLlmEngine(ctx)
+
+    @Provides @Singleton
+    fun llmEngine(engine: SwitchableLlmEngine): LlmEngine = engine
+
+    @Provides @Singleton
+    fun modelManager(@ApplicationContext ctx: Context, engine: SwitchableLlmEngine): ModelManager =
+        ModelManager(ctx, engine)
 
     @Provides @Singleton
     fun briefingGenerator(llm: LlmEngine): BriefingGenerator = BriefingGenerator(llm)
 
+    // Multi-domain first (variety of outlets), Wikipedia for background/definitions.
     @Provides @Singleton
-    fun searchProvider(client: OkHttpClient): SearchProvider = WikipediaSearchProvider(client)
+    fun searchProvider(client: OkHttpClient): SearchProvider = MultiSearchProvider(
+        listOf(DuckDuckGoSearchProvider(client), WikipediaSearchProvider(client))
+    )
 
     @Provides @Singleton
     fun siftCoach(llm: LlmEngine): SiftCoach = SiftCoach(llm)

@@ -1,39 +1,49 @@
 package app.vera.data
 
+import android.content.Context
 import app.vera.core.llm.LlmEngine
+import com.google.mediapipe.tasks.genai.llminference.LlmInference
+import com.google.mediapipe.tasks.genai.llminference.LlmInference.LlmInferenceOptions
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.withContext
 
 /**
- * On-device Gemma engine (integration point for the next milestone).
- *
- * Wiring checklist (Tier-2, verified on the Pixel 7a / GrapheneOS):
- *  1. Add dependency:  implementation("com.google.mediapipe:tasks-genai:<latest>")
- *  2. Ship or download a Gemma model, e.g. `gemma2-2b-it-cpu-int4.task`, into app files dir
- *     (NOT bundled in git — see .gitignore; ~1–2 GB, license-gated).
- *  3. Replace the bodies below with MediaPipe's LlmInference:
- *
- *      val options = LlmInference.LlmInferenceOptions.builder()
- *          .setModelPath(modelFile.absolutePath)
- *          .setMaxTokens(1024)
- *          .setPreferredBackend(LlmInference.Backend.GPU)
- *          .build()
- *      val llm = LlmInference.createFromOptions(context, options)
- *      // generate: llm.generateResponse(fullPrompt)
- *      // stream:   llm.generateResponseAsync(fullPrompt) { partial, done -> ... }
- *
- * Until wired, DI binds [app.vera.core.llm.FakeLlmEngine] so the whole app runs and is testable.
+ * Real on-device Gemma engine via MediaPipe LLM Inference (runs on the device GPU/CPU, no network).
+ * Created by [SwitchableLlmEngine] once the model file is downloaded. Model loading is heavy, so
+ * [init] must be called off the main thread.
  */
 class MediaPipeLlmEngine(
+    private val context: Context,
     private val modelPath: String
 ) : LlmEngine {
 
-    override suspend fun isReady(): Boolean = false // TODO: true once the model file loads
+    @Volatile private var inference: LlmInference? = null
+
+    fun init() {
+        val options = LlmInferenceOptions.builder()
+            .setModelPath(modelPath)
+            .setMaxTokens(1024)
+            .build()
+        inference = LlmInference.createFromOptions(context, options)
+    }
+
+    fun close() {
+        runCatching { inference?.close() }
+        inference = null
+    }
+
+    override suspend fun isReady(): Boolean = inference != null
 
     override suspend fun generate(prompt: String, system: String?, maxTokens: Int): String =
-        error("MediaPipeLlmEngine not wired yet — see class KDoc. Use FakeLlmEngine for now.")
+        withContext(Dispatchers.Default) {
+            val engine = inference ?: return@withContext ""
+            runCatching { engine.generateResponse(ModelCatalog.formatPrompt(system, prompt)) }
+                .getOrDefault("")
+        }
 
     override fun stream(prompt: String, system: String?, maxTokens: Int): Flow<String> = flow {
-        error("MediaPipeLlmEngine not wired yet — see class KDoc.")
+        emit(generate(prompt, system, maxTokens))
     }
 }

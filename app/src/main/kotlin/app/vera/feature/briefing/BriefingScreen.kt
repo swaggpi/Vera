@@ -37,8 +37,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import app.vera.core.model.BriefingItem
 import app.vera.core.model.QuizQuestion
+import app.vera.core.research.Leaning
 import app.vera.ui.theme.Amber
 import app.vera.ui.theme.Rose
 import app.vera.ui.theme.Violet
@@ -89,8 +89,9 @@ fun BriefingScreen(
                 verticalArrangement = Arrangement.spacedBy(14.dp),
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 24.dp)
             ) {
-                items(state.items, key = { it.article.id }) { item ->
-                    BriefingCard(item) { correct -> viewModel.onBriefingCompleted(correct) }
+                item(key = "model-banner") { app.vera.feature.model.ModelBanner() }
+                items(state.items, key = { it.item.article.id }) { ui ->
+                    BriefingCard(ui) { correct -> viewModel.onBriefingCompleted(correct) }
                 }
             }
         }
@@ -98,7 +99,8 @@ fun BriefingScreen(
 }
 
 @Composable
-private fun BriefingCard(item: BriefingItem, onComplete: (correct: Int) -> Unit) {
+private fun BriefingCard(ui: BriefingUi, onComplete: (correct: Int) -> Unit) {
+    val item = ui.item
     // Tracks the picked option per question index; drives feedback + completion.
     val answers = remember(item.article.id) { mutableStateMapOf<Int, Int>() }
 
@@ -108,6 +110,20 @@ private fun BriefingCard(item: BriefingItem, onComplete: (correct: Int) -> Unit)
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 8.dp)) {
+                Text(
+                    buildString {
+                        append(ui.outlet)
+                        if (ui.country.isNotBlank()) append(" · ${ui.country}")
+                    },
+                    color = Violet, fontSize = 11.sp, fontWeight = FontWeight.Bold
+                )
+                if (ui.leaning != Leaning.UNKNOWN) {
+                    Text(ui.leaning.label, color = Amber, fontSize = 10.sp, fontWeight = FontWeight.Medium,
+                        modifier = Modifier.padding(start = 8.dp).clip(RoundedCornerShape(6.dp))
+                            .background(Amber.copy(alpha = 0.15f)).padding(horizontal = 7.dp, vertical = 2.dp))
+                }
+            }
             Text(item.article.title, color = MaterialTheme.colorScheme.onSurface,
                 fontSize = 17.sp, fontWeight = FontWeight.Bold, lineHeight = 22.sp)
             Text(item.plainSummary, color = MaterialTheme.colorScheme.onSurfaceVariant,

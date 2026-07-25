@@ -75,6 +75,7 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.okhttp)
     implementation(libs.coil.compose)
+    implementation(libs.mediapipe.tasks.genai)
 
     debugImplementation(libs.androidx.ui.tooling)
 
