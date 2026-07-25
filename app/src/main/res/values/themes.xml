@@ -1,0 +1,8 @@
+<resources>
+    <!-- Compose drives the UI; this window theme just sets the dark background + bars. -->
+    <style name="Theme.Vera" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">#12141C</item>
+        <item name="android:statusBarColor">#12141C</item>
+        <item name="android:navigationBarColor">#12141C</item>
+    </style>
+</resources>
