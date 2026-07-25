@@ -7,7 +7,7 @@
 **Vera turns the technology blamed for the misinformation crisis into the tutor that helps you think through it.**
 A private, gamified news app whose AI runs **entirely on your phone** — it doesn't tell you what's true, it teaches you *how to find out*.
 
-[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-F4B740.svg)](LICENSE)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-F4B740.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Android_8%2B-9A8CF5.svg)](#build--run)
 [![On-device AI](https://img.shields.io/badge/AI-100%25_on--device-57C99A.svg)](#on-device-ai)
 ![Tests](https://img.shields.io/badge/unit_tests-passing-57C99A.svg)
@@ -108,4 +108,9 @@ Issues and PRs welcome. Run `bash run-tests.sh` before submitting — green unit
 
 ## Licence
 
-[Apache License 2.0](LICENSE) © 2026 swaggpi. The bundled default model (Qwen2.5) is Apache-2.0; Wikipedia/DuckDuckGo are used for search.
+**[GNU GPL v3.0](LICENSE)** © 2026 swaggpi. Vera is free and open source — you may use, study, modify and
+share it, but **any distributed or modified version must also be open-sourced under the GPL**.
+
+**Commercial use:** if you want to use Vera (or a derivative) in a proprietary/closed product without the
+GPL's copyleft obligations, a separate **commercial licence is available** — contact the author. (The bundled
+default model, Qwen2.5, is Apache-2.0; Wikipedia/DuckDuckGo are used for search.)

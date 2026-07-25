@@ -5,7 +5,7 @@ Vera targets **[IzzyOnDroid](https://apt.izzysoft.de/fdroid/)** — a large, wel
 **How users install it:** in the F-Droid app → Settings → Repositories → add IzzyOnDroid (many clients include it already) → search "Vera". One tap.
 
 ## What's already set up in this repo
-- ✅ Apache-2.0 licence, no Google Play Services, no trackers
+- ✅ GPL-3.0 licence (FOSS), no Google Play Services, no trackers
 - ✅ Store metadata + screenshots (`fastlane/metadata/android/en-US/…`)
 - ✅ Adaptive app icon
 - ✅ Release **signing config** in `app/build.gradle.kts` (reads `keystore.properties` locally, or env vars in CI)
