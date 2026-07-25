@@ -38,7 +38,7 @@ class ModelViewModel @Inject constructor(
 ) : ViewModel() {
     val status = manager.status
     init { viewModelScope.launch { manager.loadIfPresent() } }
-    fun download() { viewModelScope.launch { manager.download() } }
+    fun download(option: ModelCatalog.ModelOption) { viewModelScope.launch { manager.download(option) } }
 }
 
 /**
@@ -59,15 +59,23 @@ fun ModelBanner(viewModel: ModelViewModel = hiltViewModel()) {
                 ModelPhase.ABSENT -> {
                     Text("Turn on real on-device AI", color = MaterialTheme.colorScheme.onSurface,
                         fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                    Text("Right now summaries are generic placeholders. Download Vera's brain " +
-                        "(~${ModelCatalog.APPROX_MB} MB, Wi-Fi recommended) to get real, private AI — it runs " +
-                        "entirely on your phone, nothing uploaded.",
+                    Text("Summaries are generic placeholders until you install a model. It runs entirely on " +
+                        "your phone — nothing uploaded. Pick one (Wi-Fi recommended):",
                         color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.5.sp,
                         lineHeight = 17.sp, modifier = Modifier.padding(top = 4.dp))
-                    Button(onClick = viewModel::download,
-                        colors = ButtonDefaults.buttonColors(containerColor = Amber, contentColor = Color(0xFF201400)),
-                        modifier = Modifier.padding(top = 10.dp)) {
-                        Text("Download Vera's brain", fontWeight = FontWeight.Bold)
+                    ModelCatalog.OPTIONS.forEachIndexed { i, opt ->
+                        Button(
+                            onClick = { viewModel.download(opt) },
+                            colors = if (i == 0)
+                                ButtonDefaults.buttonColors(containerColor = Amber, contentColor = Color(0xFF201400))
+                            else ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                contentColor = MaterialTheme.colorScheme.onSurface
+                            ),
+                            modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+                        ) {
+                            Text("Download · ${opt.title}  (${opt.note})", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        }
                     }
                 }
                 ModelPhase.DOWNLOADING -> {
@@ -93,7 +101,7 @@ fun ModelBanner(viewModel: ModelViewModel = hiltViewModel()) {
                     Text("Couldn't install the model", color = Rose, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                     Text(status.message ?: "Unknown error", color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp), lineHeight = 16.sp)
-                    Button(onClick = viewModel::download,
+                    Button(onClick = { viewModel.download(ModelCatalog.DEFAULT) },
                         colors = ButtonDefaults.buttonColors(containerColor = Amber, contentColor = Color(0xFF201400)),
                         modifier = Modifier.padding(top = 10.dp)) {
                         Text("Retry", fontWeight = FontWeight.Bold)

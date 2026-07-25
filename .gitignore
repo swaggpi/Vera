@@ -10,6 +10,10 @@
 .cxx
 *.apk
 *.aab
+# Signing secrets — never commit
+/keystore.properties
+*.keystore
+*.jks
 # On-device model files are large and license-gated — never commit
 *.task
 *.litertlm

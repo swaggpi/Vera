@@ -18,6 +18,10 @@ Built for the **UNESCO Youth Hackathon 2026** · *"Play Your Part: Youth Designi
 
 ---
 
+## Install
+
+Vera is distributed as **open-source** software. It's being published on **[IzzyOnDroid](https://apt.izzysoft.de/fdroid/)** (an F-Droid-compatible repo, installable from the F-Droid app) — see **[docs/DISTRIBUTION.md](docs/DISTRIBUTION.md)**. You can also [build it from source](#build--run) or grab the APK from [Releases](https://github.com/swaggpi/Vera/releases).
+
 ## Why Vera
 
 Generative AI has made convincing falsehoods effortless to produce. The usual defence — verdict-style fact-checkers — can't keep pace, teaches *dependence* instead of *skill*, and rarely reaches people privately or offline. Vera flips this: a small language model runs **locally on your device** to build your own judgement — nothing is uploaded, it works offline after setup, and it costs nothing to run.

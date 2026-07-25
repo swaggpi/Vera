@@ -1,0 +1,13 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Vera lens: amber disc with a dark aperture, centered in the adaptive safe zone -->
+    <path
+        android:fillColor="#F4B740"
+        android:pathData="M28,54 a26,26 0 1,0 52,0 a26,26 0 1,0 -52,0 z" />
+    <path
+        android:fillColor="#12141C"
+        android:pathData="M53,48 a9,9 0 1,0 18,0 a9,9 0 1,0 -18,0 z" />
+</vector>

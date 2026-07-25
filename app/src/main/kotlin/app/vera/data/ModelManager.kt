@@ -54,7 +54,7 @@ class ModelManager(
         }
     }
 
-    suspend fun download() = withContext(Dispatchers.IO) {
+    suspend fun download(option: ModelCatalog.ModelOption = ModelCatalog.DEFAULT) = withContext(Dispatchers.IO) {
         if (isInstalled()) {
             loadIfPresent(); return@withContext
         }
@@ -63,7 +63,7 @@ class ModelManager(
             modelFile.parentFile?.mkdirs()
             val part = File(modelFile.parentFile, ModelCatalog.FILE_NAME + ".part")
 
-            val builder = Request.Builder().url(ModelCatalog.URL)
+            val builder = Request.Builder().url(option.url)
             if (ModelCatalog.TOKEN.isNotBlank()) builder.header("Authorization", "Bearer ${ModelCatalog.TOKEN}")
 
             downloadClient.newCall(builder.build()).execute().use { resp ->
@@ -123,17 +123,37 @@ class ModelManager(
 enum class PromptFormat { CHATML, GEMMA, RAW }
 
 /**
- * Which model the one-tap button downloads. Default is **Qwen2.5-1.5B-Instruct** as a MediaPipe
- * `.task` — Apache-2.0 and **ungated** on Hugging Face, so it installs with no token and no license
- * step (genuinely one tap). Google's Gemma is also a drop-in here, but it is license-gated: to use it
- * set [URL] to a Gemma `.task` and put a HF read token in [TOKEN] after accepting the license.
+ * The models the one-tap button can download. Both defaults are **Qwen2.5-Instruct** MediaPipe
+ * `.task` files — Apache-2.0 and **ungated** on Hugging Face, so they install with no token and no
+ * license step. The user chooses fast-and-light vs best-quality. Google's Gemma is also a drop-in
+ * (add a [ModelOption] with a Gemma URL + a HF token in [TOKEN], and set PROMPT to GEMMA).
  */
 object ModelCatalog {
     const val FILE_NAME = "vera-model.task"
-    const val URL = "https://huggingface.co/litert-community/Qwen2.5-1.5B-Instruct/resolve/main/Qwen2.5-1.5B-Instruct_multi-prefill-seq_q8_ekv1280.task"
-    const val TOKEN = ""            // set a HF read token only if you switch [URL] to a gated model (e.g. Gemma)
-    const val APPROX_MB = 1600
-    val PROMPT = PromptFormat.CHATML   // Qwen uses ChatML; use GEMMA if you swap in a Gemma model
+    const val TOKEN = ""              // set a HF read token only for a gated model (e.g. Gemma)
+    val PROMPT = PromptFormat.CHATML  // both bundled models are Qwen (ChatML)
+
+    data class ModelOption(
+        val id: String,
+        val title: String,
+        val note: String,
+        val url: String,
+        val approxMb: Int
+    )
+
+    val OPTIONS = listOf(
+        ModelOption(
+            id = "qwen15", title = "Best quality", note = "Qwen 1.5B · ~1.6 GB",
+            url = "https://huggingface.co/litert-community/Qwen2.5-1.5B-Instruct/resolve/main/Qwen2.5-1.5B-Instruct_multi-prefill-seq_q8_ekv1280.task",
+            approxMb = 1600
+        ),
+        ModelOption(
+            id = "qwen05", title = "Fast & light", note = "Qwen 0.5B · ~550 MB",
+            url = "https://huggingface.co/litert-community/Qwen2.5-0.5B-Instruct/resolve/main/Qwen2.5-0.5B-Instruct_multi-prefill-seq_q8_ekv1280.task",
+            approxMb = 550
+        )
+    )
+    val DEFAULT = OPTIONS.first()
 
     fun formatPrompt(system: String?, prompt: String): String = when (PROMPT) {
         PromptFormat.CHATML -> buildString {
