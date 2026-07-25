@@ -72,6 +72,7 @@ class ProgressRepository(private val dao: ProgressDao) {
     suspend fun completeBriefing(correctAnswers: Int) {
         val current = dao.get()?.toModel() ?: UserProgress()
         val today = LocalDate.now().toEpochDay()
+        if (current.lastCompletedEpochDay == today) return   // award once per day
         dao.upsert(Gamification.completeBriefing(current, today, correctAnswers).toEntity())
     }
 }

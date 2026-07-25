@@ -84,9 +84,10 @@ fun ModelBanner(viewModel: ModelViewModel = hiltViewModel()) {
                 }
                 ModelPhase.READY -> {
                     Text("✓ On-device AI active", color = Teal, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                    Text("Gemma is running locally on your phone. Summaries and coaching are real and private.",
+                    Text("A language model is running locally on your phone — summaries and coaching are " +
+                        "real and private, nothing is uploaded. Pull to refresh a story for a real summary.",
                         color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp,
-                        modifier = Modifier.padding(top = 4.dp))
+                        lineHeight = 16.sp, modifier = Modifier.padding(top = 4.dp))
                 }
                 ModelPhase.ERROR -> {
                     Text("Couldn't install the model", color = Rose, fontSize = 14.sp, fontWeight = FontWeight.Bold)

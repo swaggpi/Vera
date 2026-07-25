@@ -31,10 +31,22 @@ Voice (AndroidSpeechService) + Wikipedia search are real but only exercisable on
     UNGATED Qwen2.5-1.5B-Instruct .task (HTTP 200, 1.6 GB, Apache-2.0) → true one-tap, no token.
     Gemma is a drop-in via ModelCatalog (gated → set TOKEN). ChatML prompt template for Qwen.
 
-== NOT YET VERIFIED (needs the phone unlocked to run the download) ==
-  - The actual 1.6 GB download + on-device inference. Mechanism + URL verified (200/ungated);
-    app builds + installs. Tap "Download Vera's brain" on Briefing to run it. Until then the app
-    uses FakeLlmEngine, so summaries/coach text are generic placeholders.
+== DEVICE-VERIFIED END TO END (Pixel 7a) ==
+  - One-tap download: tapped "Download Vera's brain" → streamed 1.6 GB Qwen2.5-1.5B .task to
+    filesDir with a live progress bar → MediaPipe loaded it (tflite XNNPACK, ~548 MB native) →
+    banner flipped to "On-device AI active". Confirmed REAL on-device summaries (e.g. a genuine
+    Qwen paraphrase of a BBC and an NPR story), not placeholders.
+  - Briefing redesigned per user: quiz removed; each card now has "Get more sources" (→ Verify tab,
+    auto-researches that story via ResearchInbox), "Read it yourself" (opens URL), "More details"
+    (on-device AI deep-dive inline). Handoff verified: tap → Verify prefilled + auto-run.
+  - Perf/robustness fixes: briefing summaries use PLAIN TEXT (not JSON) so small models comply;
+    cards stream in progressively; MediaPipe calls serialized with a Mutex; streak/XP awarded once
+    per day on engagement.
+
+== KNOWN / NEXT ==
+  - On-device generation is CPU (XNNPACK) and slow-ish; consider GPU backend, fewer stories, or
+    caching generated briefings in Room.
+  - Model is Qwen (ungated, one-tap). Gemma is a drop-in via ModelCatalog + a HF token.
 
 == NEXT TASKS (pick ONE, implement end-to-end, test, commit) ==
   1. Wire MediaPipeLlmEngine + Gemma model side-load flow (device verify) — biggest unlock.

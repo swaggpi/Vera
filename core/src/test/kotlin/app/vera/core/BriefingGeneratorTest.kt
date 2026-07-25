@@ -17,36 +17,31 @@ class BriefingGeneratorTest {
         url = "https://ex.org/a1"
     )
 
-    @Test fun `maps well-formed model JSON into a briefing item`() = runTest {
-        val gen = BriefingGenerator(FakeLlmEngine())   // default responder returns valid JSON
+    @Test fun `uses the model's plain-text summary when it looks valid`() = runTest {
+        val gen = BriefingGenerator(FakeLlmEngine(responder = {
+            "The council approved money for three new transit lines starting next year. Supporters cite shorter commutes; critics question the cost."
+        }))
         val item = gen.generate(article)
-
-        assertThat(item.plainSummary).isNotEmpty()
+        assertThat(item.plainSummary).contains("transit lines")
         assertThat(item.quiz).isNotEmpty()
         val q = item.quiz.first()
         assertThat(q.correctIndex).isIn(q.options.indices.toList())
     }
 
-    @Test fun `falls back deterministically when the model returns prose`() = runTest {
-        val gen = BriefingGenerator(FakeLlmEngine(responder = { "Sorry, here is a plain answer with no JSON." }))
+    @Test fun `falls back to an article excerpt when the model returns JSON or junk`() = runTest {
+        // FakeLlmEngine default responder returns a JSON blob (starts with '{') -> rejected -> excerpt.
+        val gen = BriefingGenerator(FakeLlmEngine())
         val item = gen.generate(article)
-
-        // Fallback summary is drawn from the article body, and a quiz is always present.
-        assertThat(item.plainSummary).contains("council")
+        assertThat(item.plainSummary).contains("council")   // drawn from the article body
+        assertThat(item.plainSummary).doesNotContain("{")
         assertThat(item.quiz).isNotEmpty()
-        assertThat(item.manipulationWatch).isNotEmpty()
     }
 
-    @Test fun `drops quiz options with an out-of-range correct index`() = runTest {
-        val badJson = """
-            {"summary":"s","whyItMatters":"w","manipulationWatch":"m",
-             "quiz":[{"question":"q","options":["a","b"],"correctIndex":9,"explanation":"e"}]}
-        """.trimIndent()
-        val gen = BriefingGenerator(FakeLlmEngine(responder = { badJson }))
-        val item = gen.generate(article)
-
-        // The invalid question is filtered, but a safe default question backfills.
-        assertThat(item.quiz).isNotEmpty()
-        assertThat(item.quiz.first().correctIndex).isIn(item.quiz.first().options.indices.toList())
+    @Test fun `quiz question is stable per article and valid`() = runTest {
+        val gen = BriefingGenerator(FakeLlmEngine(responder = { "A plain valid summary of the story for readers." }))
+        val a = gen.generate(article).quiz.first()
+        val b = gen.generate(article).quiz.first()
+        assertThat(a.question).isEqualTo(b.question)          // deterministic per article
+        assertThat(a.correctIndex).isIn(a.options.indices.toList())
     }
 }

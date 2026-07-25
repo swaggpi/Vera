@@ -45,6 +45,7 @@ import app.vera.core.research.Leaning
 import app.vera.core.research.ResearchRepository
 import app.vera.core.research.ResearchResult
 import app.vera.core.speech.SpeechService
+import app.vera.data.ResearchInbox
 import app.vera.ui.theme.Amber
 import app.vera.ui.theme.Rose
 import app.vera.ui.theme.Teal
@@ -59,7 +60,8 @@ import javax.inject.Inject
 @HiltViewModel
 class ResearchViewModel @Inject constructor(
     private val research: ResearchRepository,
-    private val speech: SpeechService
+    private val speech: SpeechService,
+    private val inbox: ResearchInbox
 ) : ViewModel() {
 
     data class UiState(
@@ -73,6 +75,19 @@ class ResearchViewModel @Inject constructor(
     val state: StateFlow<UiState> = _state.asStateFlow()
 
     val voiceAvailable: Boolean get() = speech.isAvailable()
+
+    init {
+        // Auto-run when a briefing story is handed over via "Get more sources".
+        viewModelScope.launch {
+            inbox.pending.collect { q ->
+                if (!q.isNullOrBlank()) {
+                    inbox.clear()
+                    _state.value = _state.value.copy(input = q)
+                    investigate()
+                }
+            }
+        }
+    }
 
     fun onInput(text: String) { _state.value = _state.value.copy(input = text) }
 

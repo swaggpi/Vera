@@ -77,7 +77,16 @@ fun VeraRoot() {
             modifier = Modifier.padding(padding)
         ) {
             composable(Dest.Briefing.route) {
-                BriefingScreen(onOpenSources = { navController.navigate("sources") })
+                BriefingScreen(
+                    onOpenSources = { navController.navigate("sources") },
+                    onOpenResearch = {
+                        navController.navigate(Dest.Verify.route) {
+                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    }
+                )
             }
             composable("sources") {
                 SourcesScreen(onBack = { navController.popBackStack() })

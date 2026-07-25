@@ -13,6 +13,7 @@ import app.vera.core.research.Leaning
 import app.vera.core.research.OutletDirectory
 import app.vera.data.ProgressRepository
 import app.vera.data.ReadLogRepository
+import app.vera.data.ResearchInbox
 import app.vera.data.SampleData
 import app.vera.data.SettingsRepository
 import app.vera.data.SourceCatalogProvider
@@ -43,7 +44,8 @@ class BriefingViewModel @Inject constructor(
     private val settings: SettingsRepository,
     private val catalog: SourceCatalogProvider,
     private val progressRepo: ProgressRepository,
-    private val readLog: ReadLogRepository
+    private val readLog: ReadLogRepository,
+    private val inbox: ResearchInbox
 ) : ViewModel() {
 
     private var selectedSourceIds: List<String> = emptyList()
@@ -73,21 +75,27 @@ class BriefingViewModel @Inject constructor(
             val perSource = sources.map { src ->
                 runCatching { news.fetch(src).take(3) }.getOrDefault(emptyList())
             }
-            val articles = roundRobin(perSource).take(8).ifEmpty { SampleData.articles }
+            val articles = roundRobin(perSource).take(MAX_STORIES).ifEmpty { SampleData.articles }
 
-            val items = articles.map { article ->
+            // Generate progressively: on-device inference is slow, so surface each card as it's ready
+            // instead of blocking on the whole batch.
+            val done = ArrayList<BriefingUi>(articles.size)
+            for (article in articles) {
                 val item = generator.generate(article)
                 val src = byId[article.sourceId]
                 val profile = OutletDirectory.forUrl(article.url)
-                BriefingUi(
-                    item = item,
-                    outlet = src?.name ?: profile.name,
-                    country = src?.country ?: "",
-                    ownership = src?.ownership ?: profile.ownership,
-                    leaning = profile.leaning
+                done.add(
+                    BriefingUi(
+                        item = item,
+                        outlet = src?.name ?: profile.name,
+                        country = src?.country ?: "",
+                        ownership = src?.ownership ?: profile.ownership,
+                        leaning = profile.leaning
+                    )
                 )
+                _state.value = UiState(loading = false, items = done.toList())
             }
-            _state.value = UiState(loading = false, items = items)
+            if (done.isEmpty()) _state.value = UiState(loading = false, items = emptyList())
         }
     }
 
@@ -98,13 +106,30 @@ class BriefingViewModel @Inject constructor(
         return out
     }
 
-    fun onBriefingCompleted(correctAnswers: Int) {
+    /** Any real interaction with a story counts as engaging with the briefing (streak/XP once a day). */
+    fun onEngaged() {
         viewModelScope.launch {
-            progressRepo.completeBriefing(correctAnswers)
+            progressRepo.completeBriefing(0)
             readLog.log(selectedSourceIds)   // feeds the news-diet meter
         }
     }
 
+    /** "Get more sources": hand this story to the Verify tab, which auto-researches it. */
+    fun requestResearch(article: Article) {
+        onEngaged()
+        inbox.submit(article.title)
+    }
+
+    suspend fun moreDetails(article: Article): String {
+        onEngaged()
+        return generator.detail(article)
+    }
+
     fun slotTitle(): String =
         if (LocalTime.now().hour < 14) "Morning briefing" else "Evening briefing"
+
+    private companion object {
+        // On-device inference is slow; keep the briefing short and let cards stream in.
+        const val MAX_STORIES = 5
+    }
 }

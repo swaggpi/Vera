@@ -7,6 +7,8 @@ import com.google.mediapipe.tasks.genai.llminference.LlmInference.LlmInferenceOp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 /**
@@ -20,6 +22,8 @@ class MediaPipeLlmEngine(
 ) : LlmEngine {
 
     @Volatile private var inference: LlmInference? = null
+    // MediaPipe LlmInference is single-session: serialize calls so concurrent features don't clash.
+    private val lock = Mutex()
 
     fun init() {
         val options = LlmInferenceOptions.builder()
@@ -39,8 +43,10 @@ class MediaPipeLlmEngine(
     override suspend fun generate(prompt: String, system: String?, maxTokens: Int): String =
         withContext(Dispatchers.Default) {
             val engine = inference ?: return@withContext ""
-            runCatching { engine.generateResponse(ModelCatalog.formatPrompt(system, prompt)) }
-                .getOrDefault("")
+            lock.withLock {
+                runCatching { engine.generateResponse(ModelCatalog.formatPrompt(system, prompt)) }
+                    .getOrDefault("")
+            }
         }
 
     override fun stream(prompt: String, system: String?, maxTokens: Int): Flow<String> = flow {
