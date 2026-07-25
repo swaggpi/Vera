@@ -36,22 +36,55 @@ class BriefingGenerator(private val llm: LlmEngine) {
         else excerpt(article)
     }
 
-    /** On-demand deeper explanation of a story (the "More details" action). */
-    suspend fun detail(article: Article): String {
+    /** The must-know points of a story (the "More details" action), as short bullets. */
+    suspend fun keyPoints(article: Article): List<String> {
         val raw = runCatching {
             llm.generate(
-                prompt = "Explain this news story in 3-4 short sentences for a curious young reader: the key " +
-                    "facts, who is involved, and why it matters. Use only the information given.\n" +
-                    "TITLE: ${article.title}\nTEXT: ${article.body.take(1200)}",
-                system = "You explain news clearly and neutrally. No preamble, no markdown.",
-                maxTokens = 320
+                prompt = "List the 3 to 5 most important points a reader must know about this story. " +
+                    "One short sentence each, most important first. Use only the information given.\n" +
+                    "TITLE: ${article.title}\nTEXT: ${article.body.take(1400)}",
+                system = "You extract key facts neutrally. Reply as a plain bulleted list, one point per line. No preamble.",
+                maxTokens = 300
+            )
+        }.getOrNull()
+
+        if (raw == null || raw.trim().startsWith("{")) return fallbackPoints(article)
+
+        val points = raw.lines()
+            .map { cleanBullet(it) }
+            .filter { it.length in 4..300 && !it.contains("\":") && !it.contains("{") && !it.contains("}") }
+
+        return if (points.size >= 2) points.take(6) else fallbackPoints(article)
+    }
+
+    /** Answer a follow-up question, grounded strictly in the article (the chat under "More details"). */
+    suspend fun answer(article: Article, question: String, historyText: String): String {
+        val raw = runCatching {
+            llm.generate(
+                prompt = buildString {
+                    append("ARTICLE TITLE: ${article.title}\nARTICLE: ${article.body.take(1500)}\n\n")
+                    if (historyText.isNotBlank()) append(historyText).append("\n")
+                    append("QUESTION: $question")
+                },
+                system = "You are Vera. Answer using ONLY the article above. If the answer isn't in it, say you " +
+                    "can't tell from this article and suggest checking other sources. Be concise, neutral, plain text.",
+                maxTokens = 300
             )
         }.getOrNull()?.trim()?.removeSurrounding("\"")?.trim()
 
-        return if (raw != null && raw.length in 30..1500 && !raw.startsWith("{")) raw
-        else article.body.split(Regex("(?<=[.!?])\\s+")).filter { it.isNotBlank() }
-            .take(4).joinToString(" ").ifBlank { article.title }
+        return if (raw != null && raw.length in 2..2000 && !raw.startsWith("{")) raw
+        else "I can't answer that from this article alone — try “Get more sources” to research it further."
     }
+
+    private fun cleanBullet(line: String): String =
+        line.trim()
+            .removePrefix("-").removePrefix("•").removePrefix("*").removePrefix("·")
+            .replace(Regex("^\\d+[.)]\\s*"), "")
+            .trim().trim('"').trim()
+
+    private fun fallbackPoints(article: Article): List<String> =
+        article.body.split(Regex("(?<=[.!?])\\s+")).filter { it.isNotBlank() }.take(4)
+            .ifEmpty { listOf(article.title) }
 
     private fun excerpt(article: Article): String {
         val sentences = article.body.split(Regex("(?<=[.!?])\\s+")).filter { it.isNotBlank() }

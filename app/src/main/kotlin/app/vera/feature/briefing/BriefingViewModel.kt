@@ -120,10 +120,13 @@ class BriefingViewModel @Inject constructor(
         inbox.submit(article.title)
     }
 
-    suspend fun moreDetails(article: Article): String {
+    suspend fun keyPoints(article: Article): List<String> {
         onEngaged()
-        return generator.detail(article)
+        return generator.keyPoints(article)
     }
+
+    suspend fun ask(article: Article, question: String, historyText: String): String =
+        generator.answer(article, question, historyText)
 
     fun slotTitle(): String =
         if (LocalTime.now().hour < 14) "Morning briefing" else "Evening briefing"

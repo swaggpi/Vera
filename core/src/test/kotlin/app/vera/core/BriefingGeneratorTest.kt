@@ -44,4 +44,29 @@ class BriefingGeneratorTest {
         assertThat(a.question).isEqualTo(b.question)          // deterministic per article
         assertThat(a.correctIndex).isIn(a.options.indices.toList())
     }
+
+    @Test fun `key points parse a bulleted list and strip markers`() = runTest {
+        val gen = BriefingGenerator(FakeLlmEngine(responder = {
+            "- The council funded three transit lines.\n2) Supporters expect shorter commutes.\n• Critics question the cost."
+        }))
+        val points = gen.keyPoints(article)
+        assertThat(points).hasSize(3)
+        assertThat(points[0]).isEqualTo("The council funded three transit lines.")
+        assertThat(points.none { it.startsWith("-") || it.startsWith("•") }).isTrue()
+    }
+
+    @Test fun `key points fall back to article sentences on junk`() = runTest {
+        val gen = BriefingGenerator(FakeLlmEngine())   // default returns JSON blob
+        val points = gen.keyPoints(article)
+        assertThat(points).isNotEmpty()
+        assertThat(points.first()).contains("council")
+    }
+
+    @Test fun `answer returns model text, or a safe fallback on junk`() = runTest {
+        val ok = BriefingGenerator(FakeLlmEngine(responder = { "The plan starts next year, according to the article." }))
+        assertThat(ok.answer(article, "When does it start?", "")).contains("next year")
+
+        val junk = BriefingGenerator(FakeLlmEngine(responder = { "{\"x\":1}" }))
+        assertThat(junk.answer(article, "Anything?", "")).contains("Get more sources")
+    }
 }
