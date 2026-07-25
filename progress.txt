@@ -15,10 +15,15 @@ Voice (AndroidSpeechService) + Wikipedia search are real but only exercisable on
 == VERIFIED ==
   bash run-tests.sh   # green: unit tests + debug APK
 
-== NOT YET VERIFIED (needs device — Tier-2, Pixel 7a / GrapheneOS) ==
-  - Real Gemma inference (MediaPipeLlmEngine is a documented stub; DI binds FakeLlmEngine)
-  - Any Compose UI / instrumented behavior
-  - Live RSS fetching (SampleData is the offline fallback)
+== DEVICE-VERIFIED (Tier-2, Pixel 7a / GrapheneOS, wireless adb) ==
+  - Installs + launches, no crash; Hilt/Room init OK on-device.
+  - All 4 tabs render; live RSS briefing (real headlines); live Wikipedia research query
+    returns grounded coaching + source cards. Voice recognizer reported available.
+  - Found + fixed a real bug on-device (duplicate outlet names in research fallback).
+
+== NOT YET VERIFIED (needs the Gemma model) ==
+  - Real Gemma inference (MediaPipeLlmEngine is a documented stub; DI binds FakeLlmEngine).
+    This is why briefing summaries/coach text are generic — real Gemma replaces that.
 
 == NEXT TASKS (pick ONE, implement end-to-end, test, commit) ==
   1. Wire MediaPipeLlmEngine + Gemma model side-load flow (device verify) — biggest unlock.
