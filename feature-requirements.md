@@ -51,6 +51,8 @@ Rule: a box is `[x]` only when its unit tests pass (`bash run-tests.sh`). Device
 - [ ] GDPR + minor-safety review
 
 ## Cross-cutting
+- [ ] Runtime RECORD_AUDIO permission request flow (currently must grant mic manually in Settings)
+- [ ] De-Googled voice: bundle FOSS on-device STT (whisper.cpp) + TTS so voice works without Google
 - [ ] Accessibility pass (TalkBack, large fonts, reduced motion)
 - [ ] i18n (strings externalized; multilingual model prompts)
 - [ ] Press-freedom tiers refreshed annually from RSF (currently approximate)
