@@ -46,7 +46,7 @@ class ModelViewModel @Inject constructor(
  * confirms real AI is active. No adb or manual setup — the app fetches and loads the weights itself.
  */
 @Composable
-fun ModelBanner(viewModel: ModelViewModel = hiltViewModel()) {
+fun ModelBanner(onOpenAiSettings: () -> Unit = {}, viewModel: ModelViewModel = hiltViewModel()) {
     val status by viewModel.status.collectAsStateWithLifecycle()
 
     Card(
@@ -63,6 +63,9 @@ fun ModelBanner(viewModel: ModelViewModel = hiltViewModel()) {
                         "your phone — nothing uploaded. Pick one (Wi-Fi recommended):",
                         color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.5.sp,
                         lineHeight = 17.sp, modifier = Modifier.padding(top = 4.dp))
+                    androidx.compose.material3.TextButton(onClick = onOpenAiSettings) {
+                        Text("or use a cloud model (advanced) →", color = Amber, fontSize = 12.sp)
+                    }
                     ModelCatalog.OPTIONS.forEachIndexed { i, opt ->
                         Button(
                             onClick = { viewModel.download(opt) },
@@ -92,6 +95,9 @@ fun ModelBanner(viewModel: ModelViewModel = hiltViewModel()) {
                 }
                 ModelPhase.READY -> {
                     Text("✓ On-device AI active", color = Teal, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    androidx.compose.material3.TextButton(onClick = onOpenAiSettings) {
+                        Text("AI engine settings →", color = Amber, fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
+                    }
                     Text("A language model is running locally on your phone — summaries and coaching are " +
                         "real and private, nothing is uploaded. Pull to refresh a story for a real summary.",
                         color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp,

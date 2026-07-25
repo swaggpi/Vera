@@ -66,6 +66,7 @@ import kotlinx.coroutines.launch
 fun BriefingScreen(
     onOpenSources: () -> Unit,
     onOpenResearch: () -> Unit,
+    onOpenAiSettings: () -> Unit,
     viewModel: BriefingViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -106,7 +107,7 @@ fun BriefingScreen(
                 verticalArrangement = Arrangement.spacedBy(14.dp),
                 contentPadding = PaddingValues(bottom = 24.dp)
             ) {
-                item(key = "model-banner") { app.vera.feature.model.ModelBanner() }
+                item(key = "model-banner") { app.vera.feature.model.ModelBanner(onOpenAiSettings = onOpenAiSettings) }
                 items(state.items, key = { it.item.article.id }) { ui ->
                     BriefingCard(
                         ui = ui,

@@ -101,6 +101,7 @@ dependencies {
     implementation(libs.okhttp)
     implementation(libs.coil.compose)
     implementation(libs.mediapipe.tasks.genai)
+    implementation(libs.androidx.security.crypto)
 
     debugImplementation(libs.androidx.ui.tooling)
 

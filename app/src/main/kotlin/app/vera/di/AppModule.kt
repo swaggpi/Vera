@@ -19,6 +19,7 @@ import app.vera.data.ProgressRepository
 import app.vera.data.ReadLogDao
 import app.vera.data.ReadLogRepository
 import app.vera.data.SettingsRepository
+import app.vera.data.SecureKeyStore
 import app.vera.data.SourceCatalogProvider
 import app.vera.data.SwitchableLlmEngine
 import app.vera.data.VeraDatabase
@@ -68,7 +69,14 @@ object AppModule {
 
     // On-device model: FakeLlmEngine until the Gemma .task is downloaded, then real MediaPipe/Gemma.
     @Provides @Singleton
-    fun switchableEngine(@ApplicationContext ctx: Context): SwitchableLlmEngine = SwitchableLlmEngine(ctx)
+    fun secureKeyStore(@ApplicationContext ctx: Context): SecureKeyStore = SecureKeyStore(ctx)
+
+    @Provides @Singleton
+    fun switchableEngine(
+        @ApplicationContext ctx: Context,
+        keys: SecureKeyStore,
+        client: OkHttpClient
+    ): SwitchableLlmEngine = SwitchableLlmEngine(ctx, keys, client)
 
     @Provides @Singleton
     fun llmEngine(engine: SwitchableLlmEngine): LlmEngine = engine

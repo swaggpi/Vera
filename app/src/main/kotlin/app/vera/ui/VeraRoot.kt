@@ -26,6 +26,7 @@ import androidx.navigation.compose.rememberNavController
 import app.vera.feature.briefing.BriefingScreen
 import app.vera.feature.insights.InsightsScreen
 import app.vera.feature.research.ResearchScreen
+import app.vera.feature.settings.AiSettingsScreen
 import app.vera.feature.sources.SourcesScreen
 import app.vera.feature.training.TrainingScreen
 import app.vera.ui.theme.Amber
@@ -79,6 +80,7 @@ fun VeraRoot() {
             composable(Dest.Briefing.route) {
                 BriefingScreen(
                     onOpenSources = { navController.navigate("sources") },
+                    onOpenAiSettings = { navController.navigate("ai-settings") },
                     onOpenResearch = {
                         navController.navigate(Dest.Verify.route) {
                             popUpTo(navController.graph.findStartDestination().id) { saveState = true }
@@ -87,6 +89,9 @@ fun VeraRoot() {
                         }
                     }
                 )
+            }
+            composable("ai-settings") {
+                AiSettingsScreen(onBack = { navController.popBackStack() })
             }
             composable("sources") {
                 SourcesScreen(onBack = { navController.popBackStack() })
