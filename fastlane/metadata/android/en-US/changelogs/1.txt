@@ -1,0 +1,7 @@
+First release.
+
+- On-device AI news briefings — private, offline-capable, one-tap model install (pick 0.5B or 1.5B).
+- Key points + ask-anything chat per story (answers from the article, on-device).
+- "Check what you heard": research across diverse sources with ownership + bias labels.
+- Fake-news training: prebunking game + SIFT coach.
+- News-diet / echo-chamber meter. No Google Play Services required.
