@@ -3,11 +3,14 @@ package app.vera.feature.briefing
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.vera.core.briefing.BriefingGenerator
+import app.vera.core.briefing.StoryAnswer
+import app.vera.core.briefing.StoryChat
 import app.vera.core.model.Article
 import app.vera.core.model.BriefingItem
 import app.vera.core.model.NewsSource
 import app.vera.core.model.Ownership
 import app.vera.core.model.UserProgress
+import app.vera.core.news.BriefingRanker
 import app.vera.core.news.NewsRepository
 import app.vera.core.research.Leaning
 import app.vera.core.research.OutletDirectory
@@ -34,7 +37,9 @@ data class BriefingUi(
     val outlet: String,
     val country: String,
     val ownership: Ownership,
-    val leaning: Leaning
+    val leaning: Leaning,
+    val alsoReportedBy: List<String> = emptyList(),
+    val matchedInterests: List<String> = emptyList()
 )
 
 @HiltViewModel
@@ -45,7 +50,8 @@ class BriefingViewModel @Inject constructor(
     private val catalog: SourceCatalogProvider,
     private val progressRepo: ProgressRepository,
     private val readLog: ReadLogRepository,
-    private val inbox: ResearchInbox
+    private val inbox: ResearchInbox,
+    private val storyChat: StoryChat
 ) : ViewModel() {
 
     private var selectedSourceIds: List<String> = emptyList()
@@ -67,20 +73,29 @@ class BriefingViewModel @Inject constructor(
         viewModelScope.launch {
             _state.value = UiState(loading = true)
             val enabled = settings.enabledSourceIds.first()
+            val interests = settings.interests.first().toList()
             val sources = catalog.selected(enabled)
             selectedSourceIds = sources.map { it.id }
             val byId = sources.associateBy { it.id }
 
-            // Fetch each feed, then round-robin so the briefing spans sources instead of front-loading one.
-            val perSource = sources.map { src ->
-                runCatching { news.fetch(src).take(3) }.getOrDefault(emptyList())
-            }
-            val articles = roundRobin(perSource).take(MAX_STORIES).ifEmpty { SampleData.articles }
+            // Pull a wider pool, then let the ranker decide what actually deserves a slot.
+            val pool = sources.flatMap { src ->
+                runCatching { news.fetch(src).take(6) }.getOrDefault(emptyList())
+            }.ifEmpty { SampleData.articles }
+
+            val clusters = BriefingRanker.rank(
+                articles = pool,
+                outletName = { id -> byId[id]?.name ?: id },
+                countryOf = { id -> byId[id]?.country.orEmpty() },
+                interests = interests,
+                limit = MAX_STORIES
+            )
 
             // Generate progressively: on-device inference is slow, so surface each card as it's ready
             // instead of blocking on the whole batch.
-            val done = ArrayList<BriefingUi>(articles.size)
-            for (article in articles) {
+            val done = ArrayList<BriefingUi>(clusters.size)
+            for (cluster in clusters) {
+                val article = cluster.lead
                 val item = generator.generate(article)
                 val src = byId[article.sourceId]
                 val profile = OutletDirectory.forUrl(article.url)
@@ -90,20 +105,15 @@ class BriefingViewModel @Inject constructor(
                         outlet = src?.name ?: profile.name,
                         country = src?.country ?: "",
                         ownership = src?.ownership ?: profile.ownership,
-                        leaning = profile.leaning
+                        leaning = profile.leaning,
+                        alsoReportedBy = cluster.alsoReportedBy,
+                        matchedInterests = cluster.matchedInterests
                     )
                 )
                 _state.value = UiState(loading = false, items = done.toList())
             }
             if (done.isEmpty()) _state.value = UiState(loading = false, items = emptyList())
         }
-    }
-
-    private fun roundRobin(lists: List<List<Article>>): List<Article> {
-        val out = ArrayList<Article>()
-        val max = lists.maxOfOrNull { it.size } ?: 0
-        for (i in 0 until max) for (l in lists) if (i < l.size) out.add(l[i])
-        return out
     }
 
     /** Any real interaction with a story counts as engaging with the briefing (streak/XP once a day). */
@@ -125,8 +135,8 @@ class BriefingViewModel @Inject constructor(
         return generator.keyPoints(article)
     }
 
-    suspend fun ask(article: Article, question: String, historyText: String): String =
-        generator.answer(article, question, historyText)
+    suspend fun ask(article: Article, question: String, historyText: String): StoryAnswer =
+        storyChat.ask(article, question, historyText)
 
     fun slotTitle(): String =
         if (LocalTime.now().hour < 14) "Morning briefing" else "Evening briefing"

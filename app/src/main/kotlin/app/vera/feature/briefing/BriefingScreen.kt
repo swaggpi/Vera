@@ -59,6 +59,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.vera.core.research.Leaning
 import app.vera.ui.theme.Amber
+import app.vera.ui.theme.Teal
 import app.vera.ui.theme.Violet
 import kotlinx.coroutines.launch
 
@@ -128,7 +129,7 @@ private fun BriefingCard(
     onGetSources: () -> Unit,
     onReadIt: () -> Unit,
     onKeyPoints: suspend () -> List<String>,
-    onAsk: suspend (question: String, history: String) -> String
+    onAsk: suspend (question: String, history: String) -> app.vera.core.briefing.StoryAnswer
 ) {
     val item = ui.item
     var points by remember(item.article.id) { mutableStateOf<List<String>?>(null) }
@@ -143,6 +144,23 @@ private fun BriefingCard(
     ) {
         Column(Modifier.padding(16.dp)) {
             OutletRow(ui)
+            if (ui.alsoReportedBy.isNotEmpty() || ui.matchedInterests.isNotEmpty()) {
+                Text(
+                    buildString {
+                        if (ui.alsoReportedBy.isNotEmpty()) {
+                            append("Also reported by ")
+                            append(ui.alsoReportedBy.take(3).joinToString(", "))
+                            if (ui.alsoReportedBy.size > 3) append(" +${ui.alsoReportedBy.size - 3} more")
+                        }
+                        if (ui.matchedInterests.isNotEmpty()) {
+                            if (isNotEmpty()) append("  ·  ")
+                            append("matches ${ui.matchedInterests.joinToString(", ")}")
+                        }
+                    },
+                    color = Teal, fontSize = 11.sp, lineHeight = 15.sp,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+            }
             Text(item.article.title, color = MaterialTheme.colorScheme.onSurface,
                 fontSize = 17.sp, fontWeight = FontWeight.Bold, lineHeight = 22.sp)
             Text(item.plainSummary, color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -231,13 +249,13 @@ private fun Bullet(text: String) {
     }
 }
 
-private data class ChatMsg(val fromUser: Boolean, val text: String)
+private data class ChatMsg(val fromUser: Boolean, val text: String, val sources: List<String> = emptyList())
 
 @Composable
 private fun StoryDetailDialog(
     ui: BriefingUi,
     keyPoints: List<String>,
-    onAsk: suspend (question: String, history: String) -> String,
+    onAsk: suspend (question: String, history: String) -> app.vera.core.briefing.StoryAnswer,
     onClose: () -> Unit
 ) {
     Dialog(
@@ -259,7 +277,7 @@ private fun StoryDetailDialog(
                 sending = true
                 scope.launch {
                     val a = onAsk(q, history)
-                    messages.add(ChatMsg(false, a))
+                    messages.add(ChatMsg(false, a.text, a.extraSources))
                     sending = false
                 }
             }
@@ -335,8 +353,13 @@ private fun ChatBubble(m: ChatMsg) {
     val bg = if (m.fromUser) Violet.copy(alpha = 0.16f) else MaterialTheme.colorScheme.surface
     Box(Modifier.fillMaxWidth().padding(top = 8.dp),
         contentAlignment = if (m.fromUser) Alignment.CenterEnd else Alignment.CenterStart) {
-        Text(m.text, color = MaterialTheme.colorScheme.onSurface, fontSize = 13.5.sp, lineHeight = 19.sp,
-            modifier = Modifier.clip(RoundedCornerShape(12.dp)).background(bg).padding(horizontal = 12.dp, vertical = 9.dp))
+        Column(Modifier.clip(RoundedCornerShape(12.dp)).background(bg).padding(horizontal = 12.dp, vertical = 9.dp)) {
+            Text(m.text, color = MaterialTheme.colorScheme.onSurface, fontSize = 13.5.sp, lineHeight = 19.sp)
+            if (m.sources.isNotEmpty()) {
+                Text("🔎 also checked: ${m.sources.joinToString(", ")}",
+                    color = Amber, fontSize = 11.sp, modifier = Modifier.padding(top = 6.dp))
+            }
+        }
     }
 }
 

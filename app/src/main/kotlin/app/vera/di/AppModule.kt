@@ -3,6 +3,7 @@ package app.vera.di
 import android.content.Context
 import androidx.room.Room
 import app.vera.core.briefing.BriefingGenerator
+import app.vera.core.briefing.StoryChat
 import app.vera.core.llm.LlmEngine
 import app.vera.core.news.NewsRepository
 import app.vera.core.research.MultiSearchProvider
@@ -87,6 +88,9 @@ object AppModule {
 
     @Provides @Singleton
     fun briefingGenerator(llm: LlmEngine): BriefingGenerator = BriefingGenerator(llm)
+
+    @Provides @Singleton
+    fun storyChat(llm: LlmEngine, search: SearchProvider): StoryChat = StoryChat(llm, search)
 
     // Multi-domain first (variety of outlets), Wikipedia for background/definitions.
     @Provides @Singleton
