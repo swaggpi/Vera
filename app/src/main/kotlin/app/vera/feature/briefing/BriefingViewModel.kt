@@ -7,6 +7,7 @@ import app.vera.core.model.BriefingItem
 import app.vera.core.model.UserProgress
 import app.vera.core.news.NewsRepository
 import app.vera.data.ProgressRepository
+import app.vera.data.ReadLogRepository
 import app.vera.data.SampleData
 import app.vera.data.SettingsRepository
 import app.vera.data.SourceCatalogProvider
@@ -27,8 +28,11 @@ class BriefingViewModel @Inject constructor(
     private val generator: BriefingGenerator,
     private val settings: SettingsRepository,
     private val catalog: SourceCatalogProvider,
-    private val progressRepo: ProgressRepository
+    private val progressRepo: ProgressRepository,
+    private val readLog: ReadLogRepository
 ) : ViewModel() {
+
+    private var selectedSourceIds: List<String> = emptyList()
 
     data class UiState(
         val loading: Boolean = true,
@@ -48,6 +52,7 @@ class BriefingViewModel @Inject constructor(
             _state.value = UiState(loading = true)
             val enabled = settings.enabledSourceIds.first()
             val sources = catalog.selected(enabled)
+            selectedSourceIds = sources.map { it.id }
             val fetched = sources.flatMap { runCatching { news.fetch(it).take(3) }.getOrDefault(emptyList()) }
                 .take(8)
             val articles = fetched.ifEmpty { SampleData.articles }
@@ -57,7 +62,10 @@ class BriefingViewModel @Inject constructor(
     }
 
     fun onBriefingCompleted(correctAnswers: Int) {
-        viewModelScope.launch { progressRepo.completeBriefing(correctAnswers) }
+        viewModelScope.launch {
+            progressRepo.completeBriefing(correctAnswers)
+            readLog.log(selectedSourceIds)   // feeds the news-diet meter
+        }
     }
 
     fun slotTitle(): String =

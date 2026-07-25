@@ -2,11 +2,15 @@ VERA — PROGRESS LOG
 Rebuild context each iteration: `git log --oneline -50` + this file + feature-requirements.md
 
 == CURRENT STATE (2026-07-25) ==
-P0 foundation + P1 briefing vertical slice COMPLETE and verified on the build box (Tier-1):
-  - `./gradlew test` passes (core unit tests: RSS/Atom parse, catalog, briefing gen + fallback,
-    streak/XP, spaced repetition, diet meter).
-  - `./gradlew assembleDebug` builds app-debug.apk (~18 MB).
+P0 + P1 + core of P2/P3/P4 COMPLETE and verified on the build box (Tier-1):
+  - Briefing (news + quiz + streak), Training (SIFT coach + inoculation game),
+    Research ("check what you heard": Wikipedia search + grounded coaching + voice),
+    Insights (news-diet / echo-chamber meter fed by read_log). All 4 bottom-nav tabs live.
+  - `./gradlew :core:test` passes (RSS/Atom, catalog, briefing gen+fallback, streak/XP,
+    spaced repetition, diet meter, SIFT coach, inoculation, research orchestration).
+  - `./gradlew assembleDebug` builds app-debug.apk.
 App runs against FakeLlmEngine (deterministic) — no Gemma model needed to build/test.
+Voice (AndroidSpeechService) + Wikipedia search are real but only exercisable on device/network.
 
 == VERIFIED ==
   bash run-tests.sh   # green: unit tests + debug APK
@@ -17,11 +21,12 @@ App runs against FakeLlmEngine (deterministic) — no Gemma model needed to buil
   - Live RSS fetching (SampleData is the offline fallback)
 
 == NEXT TASKS (pick ONE, implement end-to-end, test, commit) ==
-  1. Add `SpeechService` + `SearchProvider` interfaces + fakes in :core (unblocks P3).
+  1. Wire MediaPipeLlmEngine + Gemma model side-load flow (device verify) — biggest unlock.
   2. WorkManager: schedule morning/evening briefings + notification.
-  3. Wire MediaPipeLlmEngine + model side-load flow (device verify).
-  4. Port SIFT coach + inoculation games from ../vera-prototype.html into :feature training.
-  5. GitHub Actions CI running run-tests.sh.
+  3. BraveSearchProvider/TavilySearchProvider (API key) for live news-claim checking.
+  4. Wire spaced-repetition scheduling into Training (SM-2 logic already in :core).
+  5. Deepfake/AI-image drills + share-back explainer cards.
+  6. GitHub Actions CI running run-tests.sh.
 
 == NOTES ==
   - Toolchain: JDK 21, Android SDK at $HOME/android-sdk (init.sh installs it), Gradle wrapper 8.9.

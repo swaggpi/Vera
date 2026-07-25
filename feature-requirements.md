@@ -9,10 +9,9 @@ Rule: a box is `[x]` only when its unit tests pass (`bash run-tests.sh`). Device
 - [x] Hilt DI, Compose Material3, navigation with bottom bar
 - [x] Vera design system (palette/theme) ported from web prototype
 - [x] Room DB (progress, read log) + DataStore settings
-- [x] `LlmEngine` interface + `FakeLlmEngine`; `SpeechService`/`SearchProvider` interfaces — [ ] speech & search interfaces still TODO
+- [x] `LlmEngine` + `SpeechService` + `SearchProvider` interfaces + fakes in :core
 - [x] `sources_catalog.json` (22 outlets across the largest countries)
 - [ ] CI workflow (GitHub Actions: `run-tests.sh`) — Tier-1 lane
-- [ ] `SpeechService` + `SearchProvider` interfaces + fakes in :core
 
 ## P1 — Gamified briefing (MVP)
 - [x] Source catalog parsing (`SourceCatalog`) + tests
@@ -29,19 +28,20 @@ Rule: a box is `[x]` only when its unit tests pass (`bash run-tests.sh`). Device
 - [ ] Instrumented UI test: complete a briefing → streak increments `(device)`
 
 ## P2 — Fake-news training
-- [ ] Port SIFT Socratic coach from web prototype (scenarios + generic)
-- [ ] Inoculation micro-games (technique cards, feedback)
-- [ ] Spaced repetition scheduling wired to a `TrainingRepository` (SM-2 logic + tests done)
-- [ ] Training UI + progress
+- [x] SIFT Socratic coach (LLM + scripted scenarios) + tests
+- [x] Inoculation micro-games (technique cards, feedback, streak) + tests
+- [x] Training UI (daily challenge + coach)
+- [ ] Wire spaced repetition scheduling into training (SM-2 logic + tests done, not yet persisted)
 
 ## P3 — "Check what you heard" research assistant
-- [ ] `SearchProvider` impls (Wikipedia, Brave/Tavily) + fakes
-- [ ] `ResearchRepository`: claim extraction → search → fetch → grounded synthesis with citations
-- [ ] Voice input (`SpeechRecognizer`) + TTS output `(device)`
-- [ ] Research UI with source cards + SIFT coaching
+- [x] `SearchProvider` + `WikipediaSearchProvider` (keyless) + `FakeSearchProvider` + tests
+- [x] `ResearchRepository`: query → search → grounded, cited coaching (+ fallbacks) + tests
+- [x] Voice input (`SpeechRecognizer`) + TTS output via `AndroidSpeechService` `(device)`
+- [x] Research UI with source cards + read-aloud
+- [ ] `BraveSearchProvider`/`TavilySearchProvider` (API key) for live news-claim checking
 
 ## P4 — Insights & extras
-- [ ] News-diet / echo-chamber meter UI (DietMeter logic + tests done)
+- [x] News-diet / echo-chamber meter UI, fed by `read_log` on briefing completion
 - [ ] Deepfake / AI-image spotting drills
 - [ ] Share-back explainer cards (generate + share intent)
 

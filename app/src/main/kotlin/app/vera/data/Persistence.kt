@@ -75,3 +75,23 @@ class ProgressRepository(private val dao: ProgressDao) {
         dao.upsert(Gamification.completeBriefing(current, today, correctAnswers).toEntity())
     }
 }
+
+/** Records which sources a user reads, and reconstructs them (via the catalog) for the diet meter. */
+class ReadLogRepository(
+    private val dao: ReadLogDao,
+    private val catalog: SourceCatalogProvider
+) {
+    suspend fun log(sourceIds: List<String>) {
+        val today = LocalDate.now().toEpochDay()
+        val byId = catalog.all().associateBy { it.id }
+        sourceIds.forEach { id ->
+            val s = byId[id] ?: return@forEach
+            dao.insert(ReadLogEntity(sourceId = s.id, country = s.country, epochDay = today))
+        }
+    }
+
+    suspend fun readSources(): List<app.vera.core.model.NewsSource> {
+        val byId = catalog.all().associateBy { it.id }
+        return dao.all().mapNotNull { byId[it.sourceId] }
+    }
+}
