@@ -29,6 +29,8 @@ android {
         versionName = "0.1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
+        // Ship only 64-bit ARM (every modern phone) — drops 3 unused native ABIs and shrinks the APK.
+        ndk { abiFilters += "arm64-v8a" }
     }
 
     signingConfigs {
