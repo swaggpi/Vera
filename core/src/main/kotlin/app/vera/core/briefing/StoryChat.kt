@@ -46,10 +46,13 @@ class StoryChat(
         val raw = runCatching {
             llm.generate(
                 prompt = "QUESTION: $question\n\nARTICLE: ${article.title}\n${article.body.take(700)}\n\n" +
-                    "WEB RESULTS:\n$context\n\nAnswer the question in 2-4 sentences using the article and " +
-                    "the web results. Say which source something came from when it matters. If the results " +
-                    "don't settle it, say so plainly.",
-                system = "You are Vera. Ground every claim in the material provided. Never invent facts. Plain text.",
+                    "WEB RESULTS:\n$context\n\nAnswer in 2-4 sentences using only the article and the web " +
+                    "results above. Attribute each claim to the source it came from (\"the WHO page says…\"). " +
+                    "These are short search snippets, so avoid absolute statements like \"there are none\" or " +
+                    "\"nothing exists\" — say what the snippets show and note that they may be incomplete or " +
+                    "out of date. If they don't settle the question, say so plainly.",
+                system = "You are Vera, a media-literacy coach. Ground every claim in the material provided and " +
+                    "attribute it. Never invent facts. Never over-generalise from a snippet. Plain text.",
                 maxTokens = 320
             )
         }.getOrNull()?.trim()

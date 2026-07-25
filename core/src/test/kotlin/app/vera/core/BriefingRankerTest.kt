@@ -55,6 +55,30 @@ class BriefingRankerTest {
         assertThat(withInterest.first().matchedInterests).contains("football")
     }
 
+    @Test fun `a keyword used as a simile does not count as a topic match`() {
+        // Found in live testing: an Ebola story "spreading like a wildfire" was filed under wildfires.
+        val articles = listOf(
+            a("ebola", "bbc", "Ebola deaths surge as virus spreads like a wildfire",
+                "The outbreak is growing quickly across the region.")
+        )
+        val out = BriefingRanker.rank(articles, ::name, ::country, interests = listOf("wildfire"))
+        assertThat(out.first().matchedInterests).isEmpty()
+    }
+
+    @Test fun `a real mention of the topic still matches`() {
+        val articles = listOf(
+            a("fire", "bbc", "Wildfire forces evacuations near Bordeaux", "Crews battle the blaze.")
+        )
+        val out = BriefingRanker.rank(articles, ::name, ::country, interests = listOf("wildfire"))
+        assertThat(out.first().matchedInterests).containsExactly("wildfire")
+    }
+
+    @Test fun `keywords match whole words only`() {
+        assertThat(BriefingRanker.mentions("A matter of conscience for voters", "science")).isFalse()
+        assertThat(BriefingRanker.mentions("New science funding announced", "science")).isTrue()
+        assertThat(BriefingRanker.mentions("The start of something", "art")).isFalse()
+    }
+
     @Test fun `distinct stories are never merged`() {
         val articles = listOf(
             a("1", "bbc", "Election results announced in northern province"),

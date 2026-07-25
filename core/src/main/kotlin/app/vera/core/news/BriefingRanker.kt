@@ -42,6 +42,27 @@ object BriefingRanker {
             .filter { it.length > 3 && it !in STOP }
             .toSet()
 
+    /** "like a wildfire", "as an avalanche" — the word is a figure of speech, not the subject. */
+    private val SIMILE = Regex("""\b(?:like|as)\s+(?:a|an|the)?\s*$""")
+
+    /**
+     * True when [text] is really *about* [keyword].
+     *
+     * Matches whole words only, so "science" doesn't fire on "conscience", and skips similes, so a
+     * story about Ebola "spreading like a wildfire" isn't filed under wildfires. Genuine metaphor
+     * detection needs semantics — this catches the common case, not every case.
+     */
+    internal fun mentions(text: String, keyword: String): Boolean {
+        if (keyword.isBlank()) return false
+        val hay = text.lowercase()
+        val kw = Regex.escape(keyword.lowercase())
+        for (m in Regex("""(?<![\p{L}\p{N}])$kw(?![\p{L}\p{N}])""").findAll(hay)) {
+            val before = hay.substring(0, m.range.first)
+            if (!SIMILE.containsMatchIn(before)) return true
+        }
+        return false
+    }
+
     /** Jaccard overlap of two headlines' significant words. */
     internal fun similarity(a: Set<String>, b: Set<String>): Double {
         if (a.isEmpty() || b.isEmpty()) return 0.0
@@ -97,9 +118,7 @@ object BriefingRanker {
             val countries = members.map { countryOf(articles[it].sourceId) }
                 .filter { it.isNotBlank() }.toSet()
 
-            val matched = lowerInterests.filter { kw ->
-                lead.title.lowercase().contains(kw) || lead.body.lowercase().contains(kw)
-            }
+            val matched = lowerInterests.filter { kw -> mentions(lead.title, kw) || mentions(lead.body, kw) }
 
             // Corroboration and international spread carry the most weight; a keyword hit is a strong
             // personal boost; earlier items in a feed are usually the ones editors led with.

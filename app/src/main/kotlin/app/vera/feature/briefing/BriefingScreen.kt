@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -328,7 +329,7 @@ private fun StoryDetailDialog(
 
                 // Input row
                 Row(
-                    Modifier.fillMaxWidth().padding(12.dp),
+                    Modifier.fillMaxWidth().heightIn(min = 76.dp).padding(12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     OutlinedTextField(
@@ -358,6 +359,9 @@ private fun ChatBubble(m: ChatMsg) {
             if (m.sources.isNotEmpty()) {
                 Text("🔎 also checked: ${m.sources.joinToString(", ")}",
                     color = Amber, fontSize = 11.sp, modifier = Modifier.padding(top = 6.dp))
+                Text("AI answers can be wrong or out of date — open the sources and check.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.5.sp,
+                    lineHeight = 14.sp, modifier = Modifier.padding(top = 4.dp))
             }
         }
     }
