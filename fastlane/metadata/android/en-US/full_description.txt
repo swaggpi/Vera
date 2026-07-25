@@ -1,0 +1,15 @@
+Vera is a media-literacy coach whose AI runs entirely on your own device. It doesn't tell you what's true — it teaches you how to find out.
+
+Nothing you read or ask is uploaded: a small language model runs locally (via MediaPipe), so Vera is private, works offline after a one-time setup, and needs no account.
+
+Features:
+
+* Gamified briefing — morning and evening news from sources you choose across the world's largest countries. The on-device model writes a plain-language summary, and every card shows the outlet's ownership and (approximate) political leaning. Keep a daily streak.
+* Key points and chat — pull out the must-know facts of any story and, in a full-screen view, ask Vera follow-up questions answered strictly from the article.
+* Check what you heard — say or type a claim and Vera searches multiple outlets, keeps a diverse and relevant set, summarises each, and flags likely bias, coaching you on how to weigh them.
+* Fake-news training — a daily "spot the manipulation technique" game plus a SIFT coach for anything you've seen.
+* News-diet meter — see how varied your sources are and get nudged out of echo chambers.
+
+The default model (Qwen2.5-1.5B-Instruct) is Apache-2.0 licensed and downloaded on demand with one tap. No Google Play Services required — Vera runs on de-Googled ROMs.
+
+Built for the UNESCO Youth Hackathon 2026.

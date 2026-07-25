@@ -1,46 +1,107 @@
-# Vera (Android) — on-device media-literacy coach
+<div align="center">
 
-Native Android app for the **UNESCO Youth Hackathon 2026** (track: AI & Media and Information Literacy).
-A small **Gemma** model runs **on the device** (MediaPipe LLM Inference) and can pull **live web/RSS** to:
+# 🔎 Vera
 
-1. **Gamified briefing** — morning & evening news from your chosen sources, rewritten plainly by the
-   on-device model, with quiz questions, streaks and XP.
-2. **Fake-news training** — SIFT coaching + prebunking micro-games with spaced repetition. *(P2)*
-3. **"Check what you heard"** — speak/type a claim; Vera researches it and coaches you through it. *(P3)*
-Plus a **news-diet meter**, **deepfake drills**, and (long-term) a moderated **discourse layer**.
+### Your on-device media-literacy coach
 
-Privacy-first: the model runs locally, so **nothing leaves the device** — a natural fit for the user's
-**Pixel 7a on GrapheneOS** (no Google Play Services required).
+**Vera turns the technology blamed for the misinformation crisis into the tutor that helps you think through it.**
+A private, gamified news app whose AI runs **entirely on your phone** — it doesn't tell you what's true, it teaches you *how to find out*.
 
-## Status
-**P0 foundation + P1 briefing slice are built and verified** (compiles + unit tests pass). The app runs
-against a deterministic `FakeLlmEngine`; real Gemma wiring is the next device-side step. See
-[`progress.txt`](progress.txt) and [`feature-requirements.md`](feature-requirements.md).
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-F4B740.svg)](LICENSE)
+[![Platform](https://img.shields.io/badge/Platform-Android_8%2B-9A8CF5.svg)](#build--run)
+[![On-device AI](https://img.shields.io/badge/AI-100%25_on--device-57C99A.svg)](#on-device-ai)
+![Tests](https://img.shields.io/badge/unit_tests-passing-57C99A.svg)
+
+Built for the **UNESCO Youth Hackathon 2026** · *"Play Your Part: Youth Designing the Future of Media & Information Literacy"*
+
+</div>
+
+---
+
+## Why Vera
+
+Generative AI has made convincing falsehoods effortless to produce. The usual defence — verdict-style fact-checkers — can't keep pace, teaches *dependence* instead of *skill*, and rarely reaches people privately or offline. Vera flips this: a small language model runs **locally on your device** to build your own judgement — nothing is uploaded, it works offline after setup, and it costs nothing to run.
+
+## Features
+
+| | |
+|---|---|
+| 📰 **Gamified briefing** | Morning & evening news from sources *you* choose across the world's largest countries. The on-device model writes a plain-language summary; each card shows the outlet's **ownership** and **political leaning**, with streaks & XP. |
+| 🧠 **Key points + ask-anything chat** | "More details" pulls out the must-know facts, and a **full-screen view** lets you chat with Vera about the story — answers grounded strictly in the article, on-device. |
+| 🕵️ **"Check what you heard"** | Say or type a claim → Vera searches **multiple outlets**, keeps a *diverse & relevant* set (not the first 5), summarises each, and flags likely bias — coaching you on how to weigh them. |
+| 🎓 **Fake-news training** | A daily "spot the manipulation technique" game (prebunking) plus a SIFT Socratic coach for anything you've seen. |
+| 📊 **News-diet meter** | Visualises how varied your sources are by country and ownership, and nudges you out of echo chambers. |
+
+## Screenshots
+
+<div align="center">
+
+| Briefing | Key points | Story + chat |
+|:---:|:---:|:---:|
+| ![Briefing](docs/screenshots/01-briefing.png) | ![Key points](docs/screenshots/02-key-points.png) | ![Story detail & chat](docs/screenshots/03-story-detail-chat.png) |
+| **One-tap AI install** | **Check what you heard** | **Train your eye** |
+| ![Model download](docs/screenshots/04-model-download.png) | ![Research](docs/screenshots/05-verify-research.png) | ![Train](docs/screenshots/06-train.png) |
+
+*Running on a Pixel 7a / GrapheneOS. The green digits are the phone's refresh-rate developer overlay, not part of the app.*
+
+</div>
+
+## On-device AI
+
+Vera uses **MediaPipe LLM Inference** to run a small language model on the phone's own hardware.
+
+- **One-tap install:** the app downloads the model itself (progress bar, no adb, no manual file copying) into its private storage and loads it — then real, private AI replaces the placeholder text.
+- **Default model:** [`Qwen2.5-1.5B-Instruct`](https://huggingface.co/litert-community/Qwen2.5-1.5B-Instruct) (~1.6 GB) — **Apache-2.0 and ungated**, so it installs with no token and no licence step.
+- **Gemma drop-in:** Google's Gemma is fully supported — it's licence-gated, so set a Hugging Face token + URL in [`ModelCatalog`](app/src/main/kotlin/app/vera/data/ModelManager.kt).
+- **No Google Play Services required** → works on de-Googled ROMs like GrapheneOS.
+
+> Everything the model, network, voice and search touch sits behind an interface with a fake implementation, so the whole app is unit-testable on the JVM without a model or device.
 
 ## Architecture
-- **`:core`** — pure Kotlin/JVM: models, `LlmEngine` interface + `FakeLlmEngine`, RSS/Atom parser,
-  source catalog, briefing generator, gamification (streaks/XP + SM-2 spaced repetition), diet meter.
-  All fast unit tests live here — the Ralph completion gate.
-- **`:app`** — Compose (Material3) UI, Hilt DI, Room, DataStore, OkHttp, navigation. Real device/network
-  impls (`MediaPipeLlmEngine` stub, `NewsRepositoryImpl`) live behind the `:core` interfaces.
 
-## Build & test (Tier-1 — no device needed)
+- **`:core`** — pure Kotlin/JVM: models, `LlmEngine`/`SpeechService`/`SearchProvider` interfaces + fakes, RSS/Atom parser, source catalog, briefing generator, SIFT coach, inoculation bank, research pipeline (relevance ranking + domain-diverse selection + bias directory), gamification (streaks/XP, SM-2 spaced repetition) and the news-diet meter. **All fast unit tests live here.**
+- **`:app`** — Jetpack Compose (Material 3) UI, Hilt DI, Room, DataStore, WorkManager, OkHttp. Real device impls: `MediaPipeLlmEngine`, `AndroidSpeechService`, `DuckDuckGoSearchProvider` + `WikipediaSearchProvider`, `ModelManager`.
+
+**Stack:** Kotlin · Jetpack Compose · Hilt · Room · Coroutines/Flow · MediaPipe GenAI · OkHttp · minSdk 26 / targetSdk 35.
+
+## Build & run
+
 ```bash
-bash init.sh          # installs the Android SDK (first time), writes local.properties
-bash run-tests.sh     # unit tests + assembleDebug  (the completion gate)
+bash init.sh            # installs the Android SDK on first run, writes local.properties
+bash run-tests.sh       # unit tests + assembleDebug  (no device or model needed)
 ```
-Toolchain: JDK 17+ (21 used here), Gradle wrapper 8.9, `compileSdk 35`, `minSdk 26`.
 
-## Run on device (Tier-2 — Pixel 7a / GrapheneOS)
-1. On the phone: Settings → About → tap build number ×7 → Developer options → **Wireless debugging** on.
-2. `adb pair` / `adb connect <ip:port>`, accept the RSA prompt.
-3. `./gradlew installDebug` (or `adb install app/build/outputs/apk/debug/app-debug.apk`).
-4. **Gemma model** (for real AI): accept the Gemma license (Kaggle/HF), download e.g.
-   `gemma2-2b-it-cpu-int4.task`, push it to the app files dir, then wire `MediaPipeLlmEngine`
-   (see its KDoc) and bind it in `di/AppModule` instead of `FakeLlmEngine`.
+Install on a device (see [`DEVICE-TESTING.md`](DEVICE-TESTING.md) for wireless-ADB details):
 
-## Notes
-- Source catalog: `app/src/main/assets/sources_catalog.json`. Press-freedom tiers are approximate —
-  refresh annually from RSF. Tagesschau's feed is non-commercial / 60 req-hr; stay source-agnostic for
-  any public release.
-- Sibling web prototype + proposal + deck live in the parent folder (`../`).
+```bash
+./gradlew installDebug
+# or: adb install -r app/build/outputs/apk/debug/app-debug.apk
+```
+
+Then open Vera and tap **Download Vera's brain** once to enable real on-device AI.
+
+## Roadmap
+
+- [ ] GPU inference backend + cache generated briefings (Room) for instant open
+- [ ] WorkManager twice-daily briefing generation + notifications
+- [ ] Runtime mic-permission flow; FOSS on-device voice (whisper.cpp) for fully de-Googled speech
+- [ ] Brave/Tavily search providers (API key) for stronger news-claim recall
+- [ ] Deepfake / AI-image spotting drills; share-back explainer cards
+- [ ] Community discourse layer (opt-in, moderated)
+
+## Media & information literacy foundations
+
+- **SIFT** (Stop · Investigate the source · Find better coverage · Trace) — Mike Caulfield
+- **Lateral reading** — Stanford History Education Group
+- **Psychological inoculation / prebunking** — Roozenbeek & van der Linden
+- **UNESCO** Media & Information Literacy framework
+
+> Outlet leaning/bias labels are approximate and for reflection — a prompt to weigh perspective, never a definitive rating.
+
+## Contributing
+
+Issues and PRs welcome. Run `bash run-tests.sh` before submitting — green unit tests are the bar. See [`feature-requirements.md`](feature-requirements.md) for the backlog and [`progress.txt`](progress.txt) for current state.
+
+## Licence
+
+[Apache License 2.0](LICENSE) © 2026 swaggpi. The bundled default model (Qwen2.5) is Apache-2.0; Wikipedia/DuckDuckGo are used for search.
