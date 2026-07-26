@@ -84,10 +84,12 @@ adb logcat --pid=$(adb shell pidof -s app.vera)
 
 ## Honest caveats on this build
 
-- **The AI is still the deterministic `FakeLlmEngine`.** Briefings/coach use canned + rule-based
-  fallback text; research does a *real* Wikipedia search with grounded coaching. To get **real Gemma**
-  answers, wire `MediaPipeLlmEngine` + side-load a `gemma2-2b-it-cpu-int4.task` model and swap the DI
-  binding (see `MediaPipeLlmEngine` KDoc and `di/AppModule`). That's the next milestone.
+- **The AI is real, once you install it.** Until you tap **Download · Recommended** on the Briefing
+  banner, briefings and coaching use the deterministic `FakeLlmEngine` placeholder text. The download
+  fetches **Gemma 4 E2B** (~2.6 GB, ungated) and `LiteRtLlmEngine` runs it on the phone — the banner
+  then reads "On-device AI active · GPU" (or · CPU if the GPU backend didn't take).
+- **Only models this phone can load are offered.** Gemma 4 E4B (~3.7 GB) appears only on devices with
+  12 GB+ of RAM, because a CPU fallback would peak past what an 8 GB phone survives.
 - **Voice on GrapheneOS:** `SpeechRecognizer`/TTS need a speech engine, which a de-Googled phone may not
   ship. If so, `isAvailable()` is false and the mic button is disabled — **all features work fully by
   typing.** A FOSS on-device voice stack (e.g. whisper.cpp STT + a FOSS TTS) is on the roadmap so voice

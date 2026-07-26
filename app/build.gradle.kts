@@ -60,12 +60,18 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    kotlinOptions { jvmTarget = "17" }
+    kotlin {
+        compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) }
+    }
 
     buildFeatures { compose = true }
 
     packaging {
         resources { excludes += "/META-INF/{AL2.0,LGPL2.1}" }
+        // LiteRT-LM's native library is 21 MB and ships uncompressed by default, which pushes the
+        // release APK past IzzyOnDroid's ~30 MB limit. Compressing it costs an extraction at install
+        // time — irrelevant next to the gigabyte-scale model this app downloads anyway.
+        jniLibs { useLegacyPackaging = true }
     }
 }
 
@@ -100,7 +106,7 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.okhttp)
     implementation(libs.coil.compose)
-    implementation(libs.mediapipe.tasks.genai)
+    implementation(libs.litertlm.android)
     implementation(libs.androidx.security.crypto)
     implementation(libs.androidx.work.runtime.ktx)
     implementation(libs.androidx.hilt.work)

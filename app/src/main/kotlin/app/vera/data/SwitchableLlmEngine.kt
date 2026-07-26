@@ -25,9 +25,12 @@ class SwitchableLlmEngine(
 ) : LlmEngine {
 
     private val fake = FakeLlmEngine()
-    @Volatile private var real: MediaPipeLlmEngine? = null
+    @Volatile private var real: LiteRtLlmEngine? = null
 
     val usingRealModel: Boolean get() = real != null
+
+    /** "GPU" or "CPU" once a local model is loaded — shown in Settings. */
+    val backendName: String? get() = real?.backendName
 
     /** Rebuilt on demand so Settings changes take effect immediately. */
     private fun cloud(): LlmEngine? {
@@ -43,7 +46,8 @@ class SwitchableLlmEngine(
     /** Load the downloaded model into a real engine (heavy — call off the main thread). */
     suspend fun loadModel(path: String) = withContext(Dispatchers.Default) {
         real?.close()
-        real = MediaPipeLlmEngine(context, path).also { it.init() }
+        real = null
+        real = LiteRtLlmEngine(context, path).also { it.init() }
     }
 
     private fun active(): LlmEngine = cloud() ?: real ?: fake

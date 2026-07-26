@@ -67,10 +67,45 @@ Voice (AndroidSpeechService) + Wikipedia search are real but only exercisable on
      detection is now a shape-matching regex; re-tested on device → the same question now searches
      and returns an attributed answer with the caveat line.
 
+== ENGINE MIGRATION 2026-07-26: MediaPipe → LiteRT-LM, default model Gemma 4 E2B ==
+  Why: Google put the MediaPipe LLM Inference API (com.google.mediapipe:tasks-genai) into
+  maintenance-only mode; LiteRT-LM is where the work goes and is what loads `.litertlm` models.
+  Gemma 4 E2B is ungated (one-tap survives) and covers 140+ languages, which the language setting
+  needs — Qwen2.5-1.5B translated badly.
+  - New `LiteRtLlmEngine` (app/data): Engine + EngineConfig, GPU backend first with CPU fallback,
+    fresh Conversation per call (LiteRT-LM applies the chat template, so no hand-built prompt
+    strings), Mutex-serialized. `MediaPipeLlmEngine` and `ModelCatalog.formatPrompt` are gone.
+  - ModelCatalog: Gemma 4 E2B (2.6 GB, default) + E4B (3.7 GB, only shown on 12 GB+ phones, since
+    its CPU fallback peaks ~3.3 GB). Per-option file names; a new download evicts the old model
+    and its compile cache (the old Qwen left 3.1 GB behind).
+  - Toolchain had to move: LiteRT-LM ships Kotlin 2.3 metadata, so Kotlin 2.0.21 could not read it
+    at ANY LiteRT-LM version. Now Kotlin 2.3.21 / KSP 2.3.10 / AGP 8.13.2 / Hilt 2.58 / Room 2.8.4
+    / Gradle 8.14.3. Pinned by trial: Hilt 2.59+ needs AGP 9, Room 2.6.1 crashes KSP 2.3
+    ("unexpected jvm signature V"), AndroidX 2026.x needs compileSdk 37 — kept compileSdk 35.
+  - APK: LiteRT-LM's native lib is 21 MB and ships uncompressed, pushing release to 35 MB. With
+    `jniLibs { useLegacyPackaging = true }` release is **23.4 MB**, back under IzzyOnDroid's ~30 MB.
+
+== DEVICE-VERIFIED (Pixel 7a / GrapheneOS, Gemma 4 E2B on GPU) ==
+  - One-tap download of the 2.6 GB .litertlm ran to completion; the old Qwen .task + its 1.55 GB
+    xnnpack cache were evicted automatically (models/ now holds exactly one file).
+  - Banner reads "On-device AI active · GPU". Tensor G2's GPU backend DOES work — but only after
+    two fixes found on device:
+      1. `<uses-native-library android:name="libOpenCL.so">` (+ libOpenCL-pixel.so) in the manifest.
+         Since Android 12 an app can't dlopen a vendor library it doesn't declare. Without it the
+         engine initialized happily on GPU and then failed EVERY inference with "Can not find
+         OpenCL library on this device" — the app silently served placeholder text while the
+         banner claimed on-device AI was active.
+      2. init() now runs a one-token probe generation before accepting a backend, so a backend that
+         initializes but cannot infer falls through to CPU instead of poisoning the whole session.
+  - Memory is BETTER than the old Qwen setup: 2.3-2.6 GB PSS with ~2.0 GB still available
+    (Qwen2.5-1.5B on XNNPACK sat at 1.5 GB PSS but left only 1.5 GB available and was triggering
+    lowmemorykiller). Weights are mmapped, so most of the RSS is evictable.
+  - Translation quality is the big win: "Waldbrände in Spanien: Neuer Brand bei Valencia" →
+    "Wildfires in Spain: New fire near Valencia". Qwen produced "Against Water Shortage Ban".
+
 == KNOWN / NEXT ==
-  - Answer quality is capped by Qwen2.5-1.5B: translations are clumsy ("Against Water Shortage
-    Ban") and the D-Day chat answer still never names the Allied countries. Consider a larger
-    model option for phones with the RAM.
+  - Gemma 4 E2B still embroiders: one Valencia wildfire summary added firefighters "in the Madrid
+    area" that the article didn't mention. Summaries need a grounding check, not a bigger model.
   - Fallback outlet names from OutletDirectory show as "Abcnews", "Lemonde", "Msn", "Usnews" in the
     "also checked" line — needs proper display names.
   - On-device generation is CPU (XNNPACK) and slow-ish; consider GPU backend, fewer stories, or

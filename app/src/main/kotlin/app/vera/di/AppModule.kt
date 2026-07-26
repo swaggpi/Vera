@@ -73,7 +73,7 @@ object AppModule {
     @Provides @Singleton
     fun newsRepository(client: OkHttpClient): NewsRepository = NewsRepositoryImpl(client)
 
-    // On-device model: FakeLlmEngine until the Gemma .task is downloaded, then real MediaPipe/Gemma.
+    // On-device model: FakeLlmEngine until the .litertlm model is downloaded, then real LiteRT-LM/Gemma.
     @Provides @Singleton
     fun secureKeyStore(@ApplicationContext ctx: Context): SecureKeyStore = SecureKeyStore(ctx)
 
