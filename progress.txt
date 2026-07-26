@@ -43,7 +43,36 @@ Voice (AndroidSpeechService) + Wikipedia search are real but only exercisable on
     cards stream in progressively; MediaPipe calls serialized with a Mutex; streak/XP awarded once
     per day on engagement.
 
+== DEVICE TEST 2026-07-26 (Pixel 7a, wireless adb) — source mix + language + story chat ==
+  Verified working:
+  - Source variety fix holds: a refreshed briefing drew on France 24, Tagesschau, CBC and
+    The Japan Times (4 of the 5 enabled outlets). Before the fix one outlet swept the whole list.
+  - Language: picker lists 18 options; German Tagesschau headlines and summaries render in the
+    reader's language; cached briefing rebuilds on refresh.
+  - Story detail: "More details" → inline key points, "Full screen · ask questions" → detail screen,
+    follow-up chat answers, names the outlets it checked and shows the "AI answers can be wrong"
+    caveat. Chat input keeps a usable height on long stories.
+  - BriefingWorker is registered with WorkManager on device (2 SystemJobService jobs queued).
+  Bugs found on device and fixed (each with a regression test, 74 tests green):
+  1. Headlines rendered as "Headline in target language: Against Water Shortage Ban" — the model
+     echoed the instruction as a label. localizedTitle now strips label preambles + trailing lines.
+  2. English outlets were "translated" into English, so The Japan Times came back re-title-cased.
+     localizedTitle now takes the outlet's own NewsSource.language as an exact skip signal.
+  3. looksEnglish() counted "in"/"of" as English markers — both are just as common in German and
+     Dutch, so German headlines skipped translation. Markers are now English-only.
+  4. Story chat: asked "which countries landed on these beaches", the model replayed the article's
+     own sentences and that was shown as the answer. A mostly-verbatim reply now counts as a miss.
+  5. Story chat: "The article does not provide specific information about…" was not in the
+     hardcoded miss list, so it was shown as a final answer instead of triggering a search. Miss
+     detection is now a shape-matching regex; re-tested on device → the same question now searches
+     and returns an attributed answer with the caveat line.
+
 == KNOWN / NEXT ==
+  - Answer quality is capped by Qwen2.5-1.5B: translations are clumsy ("Against Water Shortage
+    Ban") and the D-Day chat answer still never names the Allied countries. Consider a larger
+    model option for phones with the RAM.
+  - Fallback outlet names from OutletDirectory show as "Abcnews", "Lemonde", "Msn", "Usnews" in the
+    "also checked" line — needs proper display names.
   - On-device generation is CPU (XNNPACK) and slow-ish; consider GPU backend, fewer stories, or
     caching generated briefings in Room.
   - Model is Qwen (ungated, one-tap). Gemma is a drop-in via ModelCatalog + a HF token.

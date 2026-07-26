@@ -59,6 +59,68 @@ class StoryChatTest {
         assertThat(ans.extraSources).isNotEmpty()
     }
 
+    // Seen on device: asked which countries landed on the D-Day beaches, the model replayed the
+    // article's own sentences instead of admitting the article doesn't say.
+    @Test fun `a reply copied verbatim from the article triggers a web search`() = runTest {
+        val long = article.copy(
+            body = "The central bank raised rates to 4.5% today, citing persistent inflation that " +
+                "has stayed above target for eleven consecutive months across the whole economy."
+        )
+        var call = 0
+        val llm = FakeLlmEngine(responder = {
+            call++
+            if (call == 1) long.body else "Reuters reports equities fell after the decision."
+        })
+        val chat = StoryChat(llm, FakeSearchProvider(web))
+        val ans = chat.ask(long, "Which countries were affected?", "")
+
+        assertThat(ans.text).contains("equities fell")
+        assertThat(ans.extraSources).isNotEmpty()
+    }
+
+    @Test fun `an answer that quotes the article but adds to it is kept`() = runTest {
+        val chat = StoryChat(
+            FakeLlmEngine(responder = {
+                "The central bank raised rates to 4.5% today, citing persistent inflation. That is the " +
+                    "third rise this year and the steepest single step since the pandemic, so borrowers " +
+                    "on variable deals feel it first and savers see rates follow more slowly."
+            }),
+            FakeSearchProvider(web)
+        )
+        val ans = chat.ask(article, "How much did rates go up?", "")
+        assertThat(ans.text).contains("third rise")
+        assertThat(ans.extraSources).isEmpty()
+    }
+
+    // Seen on device: this exact wording was shown to the reader as the final answer instead of
+    // sending the question to search.
+    @Test fun `an unlisted miss wording still triggers a web search`() = runTest {
+        val missWordings = listOf(
+            "The article does not provide specific information about which countries landed.",
+            "This story doesn't cover what happened afterwards.",
+            "The text fails to mention the countries involved."
+        )
+        for (wording in missWordings) {
+            var call = 0
+            val llm = FakeLlmEngine(responder = {
+                call++
+                if (call == 1) wording else "Reuters reports equities fell after the decision."
+            })
+            val ans = StoryChat(llm, FakeSearchProvider(web)).ask(article, "Who was involved?", "")
+            assertThat(ans.extraSources).isNotEmpty()
+        }
+    }
+
+    @Test fun `a real answer mentioning the article is not mistaken for a miss`() = runTest {
+        val chat = StoryChat(
+            FakeLlmEngine(responder = { "The article says the bank raised rates to 4.5% today." }),
+            FakeSearchProvider(web)
+        )
+        val ans = chat.ask(article, "How much did rates go up?", "")
+        assertThat(ans.text).contains("4.5%")
+        assertThat(ans.extraSources).isEmpty()
+    }
+
     @Test fun `no web results yields a helpful message, not a dead end`() = runTest {
         val chat = StoryChat(FakeLlmEngine(responder = { "NOT_IN_ARTICLE" }), FakeSearchProvider(emptyList()))
         val ans = chat.ask(article, "Anything else?", "")

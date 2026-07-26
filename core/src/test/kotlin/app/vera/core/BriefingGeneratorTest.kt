@@ -2,6 +2,7 @@ package app.vera.core
 
 import app.vera.core.briefing.BriefingGenerator
 import app.vera.core.llm.FakeLlmEngine
+import app.vera.core.model.AppLanguage
 import app.vera.core.model.Article
 import com.google.common.truth.Truth.assertThat
 import kotlinx.coroutines.test.runTest
@@ -60,6 +61,66 @@ class BriefingGeneratorTest {
         val points = gen.keyPoints(article)
         assertThat(points).isNotEmpty()
         assertThat(points.first()).contains("council")
+    }
+
+    // Seen on device: a Tagesschau card rendered as
+    // "Headline in target language: Against Water Shortage Ban".
+    @Test fun `localized headline drops an instruction label the model echoed back`() = runTest {
+        val german = article.copy(title = "Gegen Wassermangel: Verbot der Wasserentnahme")
+        val gen = BriefingGenerator(FakeLlmEngine(responder = {
+            "Headline in target language: Ban on water extraction against shortage"
+        }))
+        val title = gen.localizedTitle(german, AppLanguage.ENGLISH)
+        assertThat(title).isEqualTo("Ban on water extraction against shortage")
+    }
+
+    @Test fun `localized headline keeps a real colon in the headline`() = runTest {
+        val gen = BriefingGenerator(FakeLlmEngine(responder = {
+            "Berlin: vehicle drives into crowd at Christopher Street Day"
+        }))
+        val title = gen.localizedTitle(article.copy(title = "Berlin: Fahrzeug fährt in Menschenmenge"),
+            AppLanguage.ENGLISH)
+        assertThat(title).isEqualTo("Berlin: vehicle drives into crowd at Christopher Street Day")
+    }
+
+    // "in" is as German as it is English — treating it as an English marker left German
+    // headlines untranslated on device.
+    @Test fun `a german headline containing 'in' is still translated`() = runTest {
+        val gen = BriefingGenerator(FakeLlmEngine(responder = { "Vehicle drives into crowd in Berlin" }))
+        val title = gen.localizedTitle(
+            article.copy(title = "Fahrzeug fährt in Menschenmenge in Berlin"), AppLanguage.ENGLISH)
+        assertThat(title).isEqualTo("Vehicle drives into crowd in Berlin")
+    }
+
+    // The Japan Times headline came back re-capitalised because an English outlet was still
+    // being "translated" into English.
+    @Test fun `an outlet already publishing in the reader's language is never translated`() = runTest {
+        val gen = BriefingGenerator(FakeLlmEngine(responder = { "A Reworded, Title-Cased Headline" }))
+        val title = gen.localizedTitle(article, AppLanguage.ENGLISH, sourceLanguage = "en")
+        assertThat(title).isEqualTo(article.title)
+    }
+
+    @Test fun `an outlet publishing in another language is translated`() = runTest {
+        val gen = BriefingGenerator(FakeLlmEngine(responder = { "Water extraction banned in Brandenburg" }))
+        val title = gen.localizedTitle(
+            article.copy(title = "Wasserentnahme in Brandenburg verboten"),
+            AppLanguage.ENGLISH, sourceLanguage = "de")
+        assertThat(title).isEqualTo("Water extraction banned in Brandenburg")
+    }
+
+    @Test fun `an english headline is passed through without asking the model`() = runTest {
+        val english = article.copy(title = "City council approves the new transit budget")
+        val gen = BriefingGenerator(FakeLlmEngine(responder = { "SHOULD NOT BE CALLED" }))
+        assertThat(gen.localizedTitle(english, AppLanguage.ENGLISH)).isEqualTo(english.title)
+    }
+
+    @Test fun `localized headline takes the headline and drops trailing commentary`() = runTest {
+        val gen = BriefingGenerator(FakeLlmEngine(responder = {
+            "Ban on water extraction in Brandenburg\n\nNote: this is a faithful translation."
+        }))
+        val title = gen.localizedTitle(article.copy(title = "Verbot der Wasserentnahme"),
+            AppLanguage.ENGLISH)
+        assertThat(title).isEqualTo("Ban on water extraction in Brandenburg")
     }
 
     @Test fun `answer returns model text, or a safe fallback on junk`() = runTest {
