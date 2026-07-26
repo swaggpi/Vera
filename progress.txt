@@ -103,11 +103,25 @@ Voice (AndroidSpeechService) + Wikipedia search are real but only exercisable on
   - Translation quality is the big win: "Waldbrände in Spanien: Neuer Brand bei Valencia" →
     "Wildfires in Spain: New fire near Valencia". Qwen produced "Against Water Shortage Ban".
 
+== OUTLET DISPLAY NAMES 2026-07-26 (fixes "Abcnews / Lemonde / Msn / Usnews") ==
+  - OutletDirectory grew from 34 to ~150 domains: US networks + nationals, UK/Ireland, France,
+    Germany, Spain, Italy, NL, wires (AFP/UPI/dpa), business+tech, aggregators (MSN, Yahoo News,
+    Google News), Asia/Africa/LatAm, state-run outlets, journals (Lancet/BMJ/NEJM/Science),
+    institutions (UN/UNESCO/NASA/NOAA/IPCC) and fact-checkers. The four names seen on device now
+    resolve to "ABC News", "Le Monde", "MSN", "U.S. News & World Report".
+  - Fallback (unknown domain) is no longer "capitalise the first label". It now strips the public
+    suffix INCLUDING two-part ones — "x.co.uk" used to render as "Co" via the naive registrable —
+    then word-splits the outlet's own label on separators ("some-local-news" -> Some Local News),
+    letter/digit boundaries ("kanal5" -> Kanal 5) and glued-on news words ("denverpost" ->
+    Denver Post, "theolivepress" -> The Olive Press). Vowel-less 2-4 letter labels are treated as
+    initialisms ("kcrw" -> KCRW). Unknown domains still report UNKNOWN ownership/leaning — the
+    prettier name never implies we rated the source.
+  - Covered by core/src/test/.../OutletNameTest.kt (11 tests: directory hits, subdomain/deep-host
+    resolution, every fallback rule, and empty/garbage URLs -> "Unknown source").
+
 == KNOWN / NEXT ==
   - Gemma 4 E2B still embroiders: one Valencia wildfire summary added firefighters "in the Madrid
     area" that the article didn't mention. Summaries need a grounding check, not a bigger model.
-  - Fallback outlet names from OutletDirectory show as "Abcnews", "Lemonde", "Msn", "Usnews" in the
-    "also checked" line — needs proper display names.
   - On-device generation is CPU (XNNPACK) and slow-ish; consider GPU backend, fewer stories, or
     caching generated briefings in Room.
   - Model is Qwen (ungated, one-tap). Gemma is a drop-in via ModelCatalog + a HF token.
