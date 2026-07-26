@@ -77,7 +77,7 @@ class BriefingRepository @Inject constructor(
                 CachedCard(
                     articleId = article.id,
                     title = article.title,
-                    displayTitle = generator.localizedTitle(article, language),
+                    displayTitle = generator.localizedTitle(article, language, src?.language),
                     url = article.url,
                     summary = item.plainSummary,
                     manipulationWatch = item.manipulationWatch,

@@ -1,6 +1,6 @@
 # Vera — Feature Requirements (Ralph backlog)
 
-On-device (Gemma via MediaPipe) media-literacy Android app for the UNESCO Youth Hackathon 2026.
+On-device (Gemma via LiteRT-LM) media-literacy Android app for the UNESCO Youth Hackathon 2026.
 Rule: a box is `[x]` only when its unit tests pass (`bash run-tests.sh`). Device-only checks are marked `(device)`.
 
 ## P0 — Foundation & harness
@@ -22,7 +22,7 @@ Rule: a box is `[x]` only when its unit tests pass (`bash run-tests.sh`). Device
 - [x] Briefing UI: cards, interactive quiz, streak header
 - [x] Offline `SampleData` fallback when feeds are blocked
 - [x] Round-robin briefing across selected sources + outlet/leaning chip per card
-- [x] Real on-device model (`MediaPipeLlmEngine`) + one-tap in-app download (ungated Qwen2.5-1.5B .task)
+- [x] Real on-device model (`LiteRtLlmEngine`, LiteRT-LM) + one-tap in-app download (ungated Gemma 4 E2B .litertlm)
 - [ ] On-device inference confirmed on hardware `(device — pending download run)`
 - [ ] WorkManager 2×/day briefing + notification scheduling
 - [x] Persist "read" articles to `read_log` for the diet meter

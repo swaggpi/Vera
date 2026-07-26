@@ -1,5 +1,6 @@
 package app.vera.data
 
+import android.app.ActivityManager
 import android.content.Context
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -17,20 +18,37 @@ enum class ModelPhase { ABSENT, DOWNLOADING, READY, ERROR }
 data class ModelStatus(
     val phase: ModelPhase,
     val progress: Float = 0f,
-    val message: String? = null
+    val message: String? = null,
+    /** "GPU" or "CPU" once a model is loaded. Part of the state so the banner recomposes with it. */
+    val backend: String? = null
 )
 
 /**
  * The on-device model, downloaded on demand. The point of a **one-tap install**: no adb, no manual
  * file pushing — the app fetches the weights, stores them in its private files dir, and hands them to
- * [SwitchableLlmEngine]. [ModelCatalog.URL] must be a direct download of a MediaPipe-compatible
- * `.task` model (Gemma is license-gated; set a token or point at your own mirror if the default 401s).
+ * [SwitchableLlmEngine]. Each [ModelCatalog.ModelOption] must be a direct download of a `.litertlm`
+ * model that [LiteRtLlmEngine] can load; the bundled options are ungated, so no token is needed.
  */
 class ModelManager(
     private val context: Context,
     private val engine: SwitchableLlmEngine
 ) {
-    val modelFile = File(File(context.filesDir, "models"), ModelCatalog.FILE_NAME)
+    private val modelsDir = File(context.filesDir, "models")
+
+    /** Total device RAM — a model this phone would be killed loading is not worth offering. */
+    private val deviceRamMb: Int = run {
+        val am = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+        val info = ActivityManager.MemoryInfo().also { am.getMemoryInfo(it) }
+        (info.totalMem / (1024L * 1024L)).toInt()
+    }
+
+    /** The models worth offering on this phone. */
+    val options: List<ModelCatalog.ModelOption> get() = ModelCatalog.optionsFor(deviceRamMb)
+
+    /** The installed model, whichever option it is — null when none has been downloaded yet. */
+    fun installedFile(): File? = ModelCatalog.OPTIONS
+        .map { File(modelsDir, it.fileName) }
+        .firstOrNull { it.exists() && it.length() > MIN_VALID_BYTES }
 
     private val _status = MutableStateFlow(
         ModelStatus(if (isInstalled()) ModelPhase.READY else ModelPhase.ABSENT)
@@ -44,24 +62,26 @@ class ModelManager(
         .callTimeout(0, TimeUnit.SECONDS)
         .build()
 
-    fun isInstalled(): Boolean = modelFile.exists() && modelFile.length() > MIN_VALID_BYTES
+    fun isInstalled(): Boolean = installedFile() != null
 
     /** If a model is already present (e.g. app relaunch), load it into the engine. */
     suspend fun loadIfPresent() {
-        if (isInstalled() && !engine.usingRealModel) {
-            runCatching { engine.loadModel(modelFile.absolutePath) }
-                .onSuccess { _status.value = ModelStatus(ModelPhase.READY) }
-        }
+        val file = installedFile() ?: return
+        if (engine.usingRealModel) return
+        runCatching { engine.loadModel(file.absolutePath) }
+            .onSuccess { _status.value = ModelStatus(ModelPhase.READY, backend = engine.backendName) }
+            .onFailure { _status.value = ModelStatus(ModelPhase.ERROR, message = it.message) }
     }
 
     suspend fun download(option: ModelCatalog.ModelOption = ModelCatalog.DEFAULT) = withContext(Dispatchers.IO) {
-        if (isInstalled()) {
+        val modelFile = File(modelsDir, option.fileName)
+        if (modelFile.exists() && modelFile.length() > MIN_VALID_BYTES) {
             loadIfPresent(); return@withContext
         }
         try {
             _status.value = ModelStatus(ModelPhase.DOWNLOADING, 0f, "Starting…")
-            modelFile.parentFile?.mkdirs()
-            val part = File(modelFile.parentFile, ModelCatalog.FILE_NAME + ".part")
+            modelsDir.mkdirs()
+            val part = File(modelsDir, option.fileName + ".part")
 
             val builder = Request.Builder().url(option.url)
             if (ModelCatalog.TOKEN.isNotBlank()) builder.header("Authorization", "Bearer ${ModelCatalog.TOKEN}")
@@ -101,17 +121,28 @@ class ModelManager(
             }
             if (modelFile.exists()) modelFile.delete()
             part.renameTo(modelFile)
+            // Models are gigabytes each: never leave a previous one (or its compile cache) behind.
+            evictAllExcept(modelFile)
 
             _status.value = ModelStatus(ModelPhase.DOWNLOADING, 1f, "Loading model into memory…")
             engine.loadModel(modelFile.absolutePath)
-            _status.value = ModelStatus(ModelPhase.READY)
+            _status.value = ModelStatus(ModelPhase.READY, backend = engine.backendName)
         } catch (e: Exception) {
             _status.value = ModelStatus(ModelPhase.ERROR, message = e.message ?: "Download error")
         }
     }
 
+    /** Frees the disk taken by any other model file, plus the old engine's compile caches. */
+    private fun evictAllExcept(keep: File) {
+        modelsDir.listFiles()?.forEach { f ->
+            if (f.absolutePath != keep.absolutePath) runCatching { f.delete() }
+        }
+        runCatching { File(context.cacheDir, "litertlm").deleteRecursively() }
+    }
+
     fun delete() {
-        runCatching { modelFile.delete() }
+        modelsDir.listFiles()?.forEach { f -> runCatching { f.delete() } }
+        runCatching { File(context.cacheDir, "litertlm").deleteRecursively() }
         _status.value = ModelStatus(ModelPhase.ABSENT)
     }
 
@@ -120,50 +151,49 @@ class ModelManager(
     }
 }
 
-enum class PromptFormat { CHATML, GEMMA, RAW }
-
 /**
- * The models the one-tap button can download. Both defaults are **Qwen2.5-Instruct** MediaPipe
- * `.task` files — Apache-2.0 and **ungated** on Hugging Face, so they install with no token and no
- * license step. The user chooses fast-and-light vs best-quality. Google's Gemma is also a drop-in
- * (add a [ModelOption] with a Gemma URL + a HF token in [TOKEN], and set PROMPT to GEMMA).
+ * The models the one-tap button can download — **Gemma 4** in Google's `.litertlm` format, run by
+ * [LiteRtLlmEngine]. Both are **ungated** on Hugging Face, so they still install with no token and
+ * no license step, which is what makes one-tap possible.
+ *
+ * Sizes are the memory peak, not the file: E2B needs ~1.7 GB on CPU but ~0.7 GB on GPU, E4B ~3.3 GB
+ * on CPU — which is why E4B is offered only to phones with the RAM to survive a CPU fallback.
  */
 object ModelCatalog {
-    const val FILE_NAME = "vera-model.task"
-    const val TOKEN = ""              // set a HF read token only for a gated model (e.g. Gemma)
-    val PROMPT = PromptFormat.CHATML  // both bundled models are Qwen (ChatML)
+    const val TOKEN = ""   // set a HF read token only if you point an option at a gated model
 
     data class ModelOption(
         val id: String,
         val title: String,
         val note: String,
         val url: String,
-        val approxMb: Int
+        val fileName: String,
+        val approxMb: Int,
+        /** Total device RAM below which this option is hidden — it would be killed on load. */
+        val minDeviceRamMb: Int
     )
 
     val OPTIONS = listOf(
         ModelOption(
-            id = "qwen15", title = "Best quality", note = "Qwen 1.5B · ~1.6 GB",
-            url = "https://huggingface.co/litert-community/Qwen2.5-1.5B-Instruct/resolve/main/Qwen2.5-1.5B-Instruct_multi-prefill-seq_q8_ekv1280.task",
-            approxMb = 1600
+            id = "gemma4e2b", title = "Recommended", note = "Gemma 4 E2B · ~2.6 GB · 140+ languages",
+            url = "https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it.litertlm",
+            fileName = "vera-gemma4-e2b.litertlm",
+            approxMb = 2588,
+            minDeviceRamMb = 6000
         ),
         ModelOption(
-            id = "qwen05", title = "Fast & light", note = "Qwen 0.5B · ~550 MB",
-            url = "https://huggingface.co/litert-community/Qwen2.5-0.5B-Instruct/resolve/main/Qwen2.5-0.5B-Instruct_multi-prefill-seq_q8_ekv1280.task",
-            approxMb = 550
+            id = "gemma4e4b", title = "Best quality", note = "Gemma 4 E4B · ~3.7 GB · needs 12 GB RAM",
+            url = "https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm/resolve/main/gemma-4-E4B-it.litertlm",
+            fileName = "vera-gemma4-e4b.litertlm",
+            approxMb = 3660,
+            minDeviceRamMb = 12000
         )
     )
     val DEFAULT = OPTIONS.first()
 
-    fun formatPrompt(system: String?, prompt: String): String = when (PROMPT) {
-        PromptFormat.CHATML -> buildString {
-            if (!system.isNullOrBlank()) append("<|im_start|>system\n").append(system).append("<|im_end|>\n")
-            append("<|im_start|>user\n").append(prompt).append("<|im_end|>\n<|im_start|>assistant\n")
-        }
-        PromptFormat.GEMMA -> {
-            val content = if (system.isNullOrBlank()) prompt else "$system\n\n$prompt"
-            "<start_of_turn>user\n$content<end_of_turn>\n<start_of_turn>model\n"
-        }
-        PromptFormat.RAW -> if (system.isNullOrBlank()) prompt else "$system\n\n$prompt"
-    }
+    /** The options worth showing on this phone — a model it cannot load is not a choice. */
+    fun optionsFor(deviceRamMb: Int): List<ModelOption> =
+        OPTIONS.filter { deviceRamMb >= it.minDeviceRamMb }.ifEmpty { listOf(DEFAULT) }
+
+    fun byId(id: String?): ModelOption? = OPTIONS.firstOrNull { it.id == id }
 }

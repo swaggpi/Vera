@@ -4,8 +4,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 
 /**
- * On-device language model abstraction. The real implementation (`MediaPipeLlmEngine`, in :app)
- * wraps MediaPipe LLM Inference running Gemma on the device's GPU. Everything device-bound lives
+ * On-device language model abstraction. The real implementation (`LiteRtLlmEngine`, in :app) wraps
+ * LiteRT-LM running Gemma on the device's GPU (falling back to CPU). Everything device-bound lives
  * behind this interface so the whole app's logic is unit-testable on the JVM with [FakeLlmEngine].
  */
 interface LlmEngine {

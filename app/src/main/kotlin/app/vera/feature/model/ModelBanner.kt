@@ -37,6 +37,7 @@ class ModelViewModel @Inject constructor(
     private val manager: ModelManager
 ) : ViewModel() {
     val status = manager.status
+    val options = manager.options
     init { viewModelScope.launch { manager.loadIfPresent() } }
     fun download(option: ModelCatalog.ModelOption) { viewModelScope.launch { manager.download(option) } }
 }
@@ -66,7 +67,7 @@ fun ModelBanner(onOpenAiSettings: () -> Unit = {}, viewModel: ModelViewModel = h
                     androidx.compose.material3.TextButton(onClick = onOpenAiSettings) {
                         Text("or use a cloud model (advanced) →", color = Amber, fontSize = 12.sp)
                     }
-                    ModelCatalog.OPTIONS.forEachIndexed { i, opt ->
+                    viewModel.options.forEachIndexed { i, opt ->
                         Button(
                             onClick = { viewModel.download(opt) },
                             colors = if (i == 0)
@@ -94,7 +95,8 @@ fun ModelBanner(onOpenAiSettings: () -> Unit = {}, viewModel: ModelViewModel = h
                         modifier = Modifier.padding(top = 6.dp))
                 }
                 ModelPhase.READY -> {
-                    Text("✓ On-device AI active", color = Teal, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    Text("✓ On-device AI active" + (status.backend?.let { " · $it" } ?: ""),
+                        color = Teal, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                     androidx.compose.material3.TextButton(onClick = onOpenAiSettings) {
                         Text("AI engine settings →", color = Amber, fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
                     }

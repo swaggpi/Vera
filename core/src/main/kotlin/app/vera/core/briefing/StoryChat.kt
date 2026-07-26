@@ -83,16 +83,60 @@ class StoryChat(
 
         if (raw.isBlank() || raw.startsWith("{")) return null
         if (raw.uppercase().contains("NOT_IN_ARTICLE")) return null
-        // Small models often phrase the miss instead of using the sentinel.
+        // Small models often phrase the miss instead of using the sentinel. There are too many
+        // wordings to list ("the article does not provide specific information about…"), so match
+        // the shape of the sentence rather than a fixed set of phrases.
         val miss = listOf("cannot tell", "can't tell", "does not say", "doesn't say", "not mentioned",
-            "no information", "not stated", "does not mention", "doesn't mention", "not specified")
+            "no information", "not stated", "does not mention", "doesn't mention", "not specified",
+            "not provided")
         if (miss.any { raw.lowercase().contains(it) }) return null
+        if (ARTICLE_MISS.containsMatchIn(raw)) return null
+        if (isVerbatimLift(raw, article)) return null
         return raw
     }
+
+    /**
+     * Small models often "answer" by copying sentences straight back out of the article instead of
+     * using the NOT_IN_ARTICLE sentinel. That reads like an answer but isn't one — asked which
+     * countries landed on the D-Day beaches, the model replayed the article's opening. Treat a
+     * mostly-copied reply as a miss so the question goes to search, where it can be answered.
+     */
+    private fun isVerbatimLift(answer: String, article: Article): Boolean {
+        val body = normalizeWords(article.title + " " + article.body).joinToString(" ")
+        val words = normalizeWords(answer)
+        if (words.size < MIN_LIFT_WORDS) return false
+        var longest = 0
+        for (start in words.indices) {
+            var len = longest                      // only look for runs longer than the best so far
+            while (start + len < words.size &&
+                body.contains(words.subList(start, start + len + 1).joinToString(" "))
+            ) len++
+            if (len > longest) longest = len
+        }
+        return longest >= MIN_LIFT_WORDS && longest >= words.size * LIFT_SHARE
+    }
+
+    private fun normalizeWords(s: String): List<String> =
+        s.lowercase().replace(Regex("[^\\p{L}\\p{N}]+"), " ").trim().split(" ").filter { it.isNotBlank() }
 
     internal fun searchQuery(article: Article, question: String): String {
         // Anchor the question to the story so the search doesn't drift off-topic.
         val topic = article.title.split(Regex("\\s+")).take(8).joinToString(" ")
         return "$topic ${question.trim()}".take(240)
+    }
+
+    private companion object {
+        /** Shorter replies can be a fair quote; long ones that match are a copy-paste. */
+        const val MIN_LIFT_WORDS = 12
+        const val LIFT_SHARE = 0.6
+
+        /** "The article does not provide / doesn't mention / fails to state …" in any wording. */
+        val ARTICLE_MISS = Regex(
+            "(article|story|text|piece)[^.]{0,60}?\\b(does not|doesn't|do not|don't|did not|didn't|" +
+                "cannot|can't|fails to|never)\\b[^.]{0,40}?" +
+                "\\b(say|says|state|mention|specify|provide|contain|include|detail|indicate|cover|tell|" +
+                "answer|information)\\b",
+            RegexOption.IGNORE_CASE
+        )
     }
 }

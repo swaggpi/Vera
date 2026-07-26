@@ -16,6 +16,15 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Vera">
 
+        <!--
+            Since Android 12 an app may only dlopen a vendor native library it declares. Without
+            these, LiteRT-LM's GPU backend initializes and then fails on every inference with
+            "Can not find OpenCL library on this device". Optional: phones without OpenCL fall back
+            to the CPU backend.
+        -->
+        <uses-native-library android:name="libOpenCL.so" android:required="false" />
+        <uses-native-library android:name="libOpenCL-pixel.so" android:required="false" />
+
         <activity
             android:name=".MainActivity"
             android:exported="true"

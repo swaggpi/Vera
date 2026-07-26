@@ -52,11 +52,12 @@ Generative AI has made convincing falsehoods effortless to produce. The usual de
 
 ## On-device AI
 
-Vera uses **MediaPipe LLM Inference** to run a small language model on the phone's own hardware.
+Vera uses **LiteRT-LM** — Google's supported on-device runtime — to run a small language model on the phone's own hardware.
 
 - **One-tap install:** the app downloads the model itself (progress bar, no adb, no manual file copying) into its private storage and loads it — then real, private AI replaces the placeholder text.
-- **Default model:** [`Qwen2.5-1.5B-Instruct`](https://huggingface.co/litert-community/Qwen2.5-1.5B-Instruct) (~1.6 GB) — **Apache-2.0 and ungated**, so it installs with no token and no licence step.
-- **Gemma drop-in:** Google's Gemma is fully supported — it's licence-gated, so set a Hugging Face token + URL in [`ModelCatalog`](app/src/main/kotlin/app/vera/data/ModelManager.kt).
+- **Default model:** [`Gemma 4 E2B`](https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm) (~2.6 GB) — **ungated**, so it installs with no token and no licence step. 140+ languages, which is what Vera's language setting needs.
+- **GPU first:** the engine tries the GPU backend and falls back to CPU. It matters — E2B peaks around 1.7 GB of RAM on CPU but ~0.7 GB on GPU.
+- **Bigger phones:** Gemma 4 E4B (~3.7 GB) is offered only on devices with 12 GB+ of RAM; see [`ModelCatalog`](app/src/main/kotlin/app/vera/data/ModelManager.kt).
 - **No Google Play Services required** → works on de-Googled ROMs like GrapheneOS.
 
 > Everything the model, network, voice and search touch sits behind an interface with a fake implementation, so the whole app is unit-testable on the JVM without a model or device.
@@ -64,9 +65,9 @@ Vera uses **MediaPipe LLM Inference** to run a small language model on the phone
 ## Architecture
 
 - **`:core`** — pure Kotlin/JVM: models, `LlmEngine`/`SpeechService`/`SearchProvider` interfaces + fakes, RSS/Atom parser, source catalog, briefing generator, SIFT coach, inoculation bank, research pipeline (relevance ranking + domain-diverse selection + bias directory), gamification (streaks/XP, SM-2 spaced repetition) and the news-diet meter. **All fast unit tests live here.**
-- **`:app`** — Jetpack Compose (Material 3) UI, Hilt DI, Room, DataStore, WorkManager, OkHttp. Real device impls: `MediaPipeLlmEngine`, `AndroidSpeechService`, `DuckDuckGoSearchProvider` + `WikipediaSearchProvider`, `ModelManager`.
+- **`:app`** — Jetpack Compose (Material 3) UI, Hilt DI, Room, DataStore, WorkManager, OkHttp. Real device impls: `LiteRtLlmEngine`, `AndroidSpeechService`, `DuckDuckGoSearchProvider` + `WikipediaSearchProvider`, `ModelManager`.
 
-**Stack:** Kotlin · Jetpack Compose · Hilt · Room · Coroutines/Flow · MediaPipe GenAI · OkHttp · minSdk 26 / targetSdk 35.
+**Stack:** Kotlin · Jetpack Compose · Hilt · Room · Coroutines/Flow · LiteRT-LM · OkHttp · minSdk 26 / targetSdk 35.
 
 ## Build & run
 
@@ -113,4 +114,4 @@ share it, but **any distributed or modified version must also be open-sourced un
 
 **Commercial use:** if you want to use Vera (or a derivative) in a proprietary/closed product without the
 GPL's copyleft obligations, a separate **commercial licence is available** — contact the author. (The bundled
-default model, Qwen2.5, is Apache-2.0; Wikipedia/DuckDuckGo are used for search.)
+default model, Gemma 4, is under the Gemma Terms of Use; Wikipedia/DuckDuckGo are used for search.)

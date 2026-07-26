@@ -3,6 +3,22 @@
 All notable changes to Vera are documented here. Format based on
 [Keep a Changelog](https://keepachangelog.com/); versions follow [SemVer](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+- **On-device engine moved from MediaPipe LLM Inference to LiteRT-LM.** Google put the MediaPipe
+  LLM API into maintenance-only mode; LiteRT-LM is where the work now goes, and it is what loads
+  `.litertlm` models. The engine tries the **GPU** backend first and falls back to CPU.
+- **Default model is now Gemma 4 E2B** (~2.6 GB, ungated, 140+ languages) instead of
+  Qwen2.5-1.5B — a better fit for the multilingual briefing. Gemma 4 E4B (~3.7 GB) is offered on
+  phones with 12 GB+ of RAM; models a device cannot load are no longer shown.
+- Downloading a model now evicts the previous one and its compile cache, instead of leaving
+  gigabytes behind.
+- Toolchain: Kotlin 2.3.21, KSP 2.3.10, AGP 8.13.2, Hilt 2.58, Room 2.8.4, Gradle 8.14.3 —
+  required by LiteRT-LM, which ships Kotlin 2.3 metadata.
+- The release APK stays under IzzyOnDroid's ~30 MB limit (23.4 MB) by compressing the 21 MB
+  LiteRT-LM native library.
+
 ## [0.1.0] — 2026-07-25
 
 First public release.

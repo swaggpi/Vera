@@ -1,6 +1,6 @@
 # Distributing Vera (open-source, F-Droid-style)
 
-Vera targets **[IzzyOnDroid](https://apt.izzysoft.de/fdroid/)** — a large, well-known repository that works inside the **F-Droid app** and other clients (Droid-ify, Neo Store). It's FOSS-only like F-Droid, but accepts an app as a **signed APK published on GitHub Releases**, so you avoid the main F-Droid repo's build-from-source rule (which MediaPipe's prebuilt native library would fail). This is the easiest open-source route for both you and your users.
+Vera targets **[IzzyOnDroid](https://apt.izzysoft.de/fdroid/)** — a large, well-known repository that works inside the **F-Droid app** and other clients (Droid-ify, Neo Store). It's FOSS-only like F-Droid, but accepts an app as a **signed APK published on GitHub Releases**, so you avoid the main F-Droid repo's build-from-source rule (which LiteRT-LM's prebuilt native library would fail). This is the easiest open-source route for both you and your users.
 
 **How users install it:** in the F-Droid app → Settings → Repositories → add IzzyOnDroid (many clients include it already) → search "Vera". One tap.
 
@@ -47,4 +47,4 @@ Then `./gradlew assembleRelease` → `app/build/outputs/apk/release/app-release.
 
 ## Notes
 - **Google Play / Samsung** would reach more people but need a paid/registered account and (for new Play accounts) a 20-tester × 14-day closed test. The same signed build works there too if you go that route later.
-- **Main F-Droid repo** (stricter, build-from-source) would require replacing MediaPipe with a from-source engine (e.g. llama.cpp) — a contained change since inference sits behind the `LlmEngine` interface. IzzyOnDroid first is the pragmatic order.
+- **Main F-Droid repo** (stricter, build-from-source) would require replacing LiteRT-LM with a from-source engine (e.g. llama.cpp) — a contained change since inference sits behind the `LlmEngine` interface. IzzyOnDroid first is the pragmatic order.

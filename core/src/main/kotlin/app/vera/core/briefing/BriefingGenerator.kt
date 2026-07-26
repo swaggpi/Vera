@@ -43,10 +43,19 @@ class BriefingGenerator(private val llm: LlmEngine) {
      * The headline rendered in the reader's language. Feeds publish in their own language, so
      * without this a briefing mixes German, French and English headlines together.
      */
-    suspend fun localizedTitle(article: Article, language: AppLanguage): String {
-        if (language == AppLanguage.DEVICE || language == AppLanguage.ENGLISH) {
-            // English is the common feed language; only translate when the model is confident.
-            if (language == AppLanguage.ENGLISH && looksEnglish(article.title)) return article.title
+    suspend fun localizedTitle(
+        article: Article,
+        language: AppLanguage,
+        sourceLanguage: String? = null
+    ): String {
+        // The outlet's own language is an exact signal — asking the model to translate an English
+        // headline into English gets it reworded or re-capitalised, and costs a generation.
+        if (sourceLanguage != null && sourceLanguage.equals(language.code, ignoreCase = true)) {
+            return article.title
+        }
+        // Unknown source language: English is the common feed language, so guess conservatively.
+        if (sourceLanguage == null && language == AppLanguage.ENGLISH && looksEnglish(article.title)) {
+            return article.title
         }
         val raw = runCatching {
             llm.generate(
@@ -57,14 +66,32 @@ class BriefingGenerator(private val llm: LlmEngine) {
                 maxTokens = 90
             )
         }.getOrNull()?.trim()?.removeSurrounding("\"")?.trim()
+            // Small models like to answer with the instruction as a label, and sometimes add a
+            // second line of commentary — keep the headline itself.
+            ?.lineSequence()?.firstOrNull { it.isNotBlank() }?.let { stripLabel(it.trim()) }
+            ?.removeSurrounding("\"")?.trim()
 
         // Guard against the model rambling or refusing.
-        return if (raw != null && raw.length in 8..220 && !raw.contains("\n") && !raw.startsWith("{")) raw
+        return if (raw != null && raw.length in 8..220 && !raw.startsWith("{")) raw
         else article.title
     }
 
+    /**
+     * Strips a leading "Headline in target language: …" style label. Only labels built from
+     * instruction words are removed, so a real headline ("Berlin: car drives into crowd") survives.
+     */
+    private fun stripLabel(s: String): String {
+        val m = Regex("^([A-Za-z][^:\\n]{0,45}):\\s+(\\S.*)$").find(s) ?: return s
+        val label = m.groupValues[1].lowercase()
+        return if (LABEL_WORDS.any { it in label }) m.groupValues[2].trim() else s
+    }
+
+    /**
+     * Marker words are English-only on purpose: "in" and "of" are just as common in German and
+     * Dutch, so including them made half the German headlines skip translation entirely.
+     */
     private fun looksEnglish(s: String): Boolean =
-        Regex("\\b(the|and|of|in|to|for|after|says|with)\\b", RegexOption.IGNORE_CASE).containsMatchIn(s)
+        Regex("\\b(the|and|to|for|after|says|with)\\b", RegexOption.IGNORE_CASE).containsMatchIn(s)
 
     /** The must-know points of a story (the "More details" action), as short bullets. */
     suspend fun keyPoints(article: Article, language: AppLanguage = AppLanguage.ENGLISH): List<String> {
@@ -126,6 +153,11 @@ class BriefingGenerator(private val llm: LlmEngine) {
         QUESTIONS[abs(article.id.hashCode()) % QUESTIONS.size]
 
     companion object {
+        private val LABEL_WORDS = listOf(
+            "headline", "translation", "translated", "target language",
+            "output", "answer", "response", "result"
+        )
+
         private val QUESTIONS = listOf(
             QuizQuestion(
                 "What's the best first step before trusting this story?",
