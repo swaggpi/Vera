@@ -102,6 +102,9 @@ dependencies {
     implementation(libs.coil.compose)
     implementation(libs.mediapipe.tasks.genai)
     implementation(libs.androidx.security.crypto)
+    implementation(libs.androidx.work.runtime.ktx)
+    implementation(libs.androidx.hilt.work)
+    ksp(libs.androidx.hilt.compiler)
 
     debugImplementation(libs.androidx.ui.tooling)
 

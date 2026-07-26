@@ -37,6 +37,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import app.vera.core.model.NewsSource
+import app.vera.core.model.AppLanguage
 import app.vera.core.model.Ownership
 import app.vera.data.SettingsRepository
 import app.vera.data.SourceCatalogProvider
@@ -62,6 +63,11 @@ class SourcesViewModel @Inject constructor(
     val enabled: StateFlow<Set<String>> = settings.enabledSourceIds
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
 
+    val language: StateFlow<AppLanguage> = settings.language
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AppLanguage.DEVICE)
+
+    fun setLanguage(l: AppLanguage) { viewModelScope.launch { settings.setLanguage(l) } }
+
     val interests: StateFlow<Set<String>> = settings.interests
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
 
@@ -84,6 +90,7 @@ fun SourcesScreen(
 ) {
     val enabled by viewModel.enabled.collectAsStateWithLifecycle()
     val interests by viewModel.interests.collectAsStateWithLifecycle()
+    val language by viewModel.language.collectAsStateWithLifecycle()
     var newInterest by remember { mutableStateOf("") }
     val grouped = viewModel.all.groupBy { it.country }
 
@@ -100,6 +107,34 @@ fun SourcesScreen(
         }
         LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp),
             contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 8.dp)) {
+            item(key = "language") {
+                Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp))
+                    .background(MaterialTheme.colorScheme.surface).padding(14.dp)) {
+                    Text("LANGUAGE", color = Amber, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    Text("Headlines, summaries, key points and answers are written in this language — " +
+                        "whatever language the outlet publishes in.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp,
+                        lineHeight = 16.sp, modifier = Modifier.padding(top = 4.dp, bottom = 10.dp))
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        AppLanguage.entries.forEach { l ->
+                            val sel = l == language
+                            Text(
+                                if (l == AppLanguage.DEVICE) l.label else l.endonym,
+                                color = if (sel) androidx.compose.ui.graphics.Color(0xFF201400)
+                                        else MaterialTheme.colorScheme.onSurface,
+                                fontSize = 12.sp, fontWeight = FontWeight.Medium,
+                                modifier = Modifier.padding(bottom = 6.dp).clip(RoundedCornerShape(8.dp))
+                                    .background(if (sel) Amber else MaterialTheme.colorScheme.surfaceVariant)
+                                    .clickable { viewModel.setLanguage(l) }
+                                    .padding(horizontal = 10.dp, vertical = 6.dp)
+                            )
+                        }
+                    }
+                    Text("Changing this rebuilds your next briefing.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp,
+                        modifier = Modifier.padding(top = 4.dp))
+                }
+            }
             item(key = "interests") {
                 Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp))
                     .background(MaterialTheme.colorScheme.surface).padding(14.dp)) {

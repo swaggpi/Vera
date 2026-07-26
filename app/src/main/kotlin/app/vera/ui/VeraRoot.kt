@@ -24,6 +24,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import app.vera.feature.briefing.BriefingScreen
+import app.vera.feature.briefing.StoryDetailScreen
 import app.vera.feature.insights.InsightsScreen
 import app.vera.feature.research.ResearchScreen
 import app.vera.feature.settings.AiSettingsScreen
@@ -81,6 +82,7 @@ fun VeraRoot() {
                 BriefingScreen(
                     onOpenSources = { navController.navigate("sources") },
                     onOpenAiSettings = { navController.navigate("ai-settings") },
+                    onOpenStory = { navController.navigate("story-detail") },
                     onOpenResearch = {
                         navController.navigate(Dest.Verify.route) {
                             popUpTo(navController.graph.findStartDestination().id) { saveState = true }
@@ -89,6 +91,9 @@ fun VeraRoot() {
                         }
                     }
                 )
+            }
+            composable("story-detail") {
+                StoryDetailScreen(onBack = { navController.popBackStack() })
             }
             composable("ai-settings") {
                 AiSettingsScreen(onBack = { navController.popBackStack() })

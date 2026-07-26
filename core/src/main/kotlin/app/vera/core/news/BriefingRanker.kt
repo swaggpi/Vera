@@ -105,6 +105,17 @@ object BriefingRanker {
             clusters.add(members)
         }
 
+        // Position of each article *within its own feed*. Using its index in the combined pool would
+        // hand the whole briefing to whichever outlet happened to be fetched first.
+        val rankInFeed = HashMap<Int, Int>()
+        val seenPerSource = HashMap<String, Int>()
+        articles.forEachIndexed { i, a ->
+            val n = seenPerSource.getOrDefault(a.sourceId, 0)
+            rankInFeed[i] = n
+            seenPerSource[a.sourceId] = n + 1
+        }
+        val deepestFeed = (seenPerSource.values.maxOrNull() ?: 1).coerceAtLeast(1)
+
         // --- 2. score each cluster ---
         val lowerInterests = interests.map { it.lowercase().trim() }.filter { it.isNotBlank() }
         val scored = clusters.map { members ->
@@ -124,7 +135,8 @@ object BriefingRanker {
             // personal boost; earlier items in a feed are usually the ones editors led with.
             val corroboration = (others.size + 1).toDouble()
             val spread = countries.size.toDouble()
-            val prominence = 1.0 - (leadIdx.toDouble() / articles.size)
+            // How high the story sat in its own outlet's feed — comparable across outlets.
+            val prominence = 1.0 - (rankInFeed[leadIdx] ?: 0).toDouble() / deepestFeed
             val interestBoost = if (matched.isNotEmpty()) 3.0 + matched.size else 0.0
 
             StoryCluster(
@@ -136,6 +148,43 @@ object BriefingRanker {
             )
         }
 
-        return scored.sortedByDescending { it.score }.take(limit)
+        return diversify(scored.sortedByDescending { it.score }, outletName, limit)
+    }
+
+    /**
+     * Take the best stories, but don't let one outlet fill the whole briefing.
+     *
+     * Highest-scoring first, capping each outlet at a fair share; if that leaves gaps (because only
+     * one outlet returned anything), the remaining best stories backfill so the briefing is never short.
+     */
+    internal fun diversify(
+        ranked: List<StoryCluster>,
+        outletName: (String) -> String,
+        limit: Int
+    ): List<StoryCluster> {
+        if (ranked.size <= limit) return ranked
+        val distinctOutlets = ranked.map { outletName(it.lead.sourceId) }.distinct().size
+        val perOutletCap = if (distinctOutlets <= 1) limit
+        else maxOf(1, Math.ceil(limit.toDouble() / distinctOutlets).toInt())
+
+        val picked = ArrayList<StoryCluster>(limit)
+        val usedByOutlet = HashMap<String, Int>()
+        for (c in ranked) {
+            if (picked.size == limit) break
+            val outlet = outletName(c.lead.sourceId)
+            val used = usedByOutlet.getOrDefault(outlet, 0)
+            if (used < perOutletCap) {
+                picked.add(c)
+                usedByOutlet[outlet] = used + 1
+            }
+        }
+        // Backfill if the cap was too strict to reach the limit.
+        if (picked.size < limit) {
+            for (c in ranked) {
+                if (picked.size == limit) break
+                if (c !in picked) picked.add(c)
+            }
+        }
+        return picked
     }
 }

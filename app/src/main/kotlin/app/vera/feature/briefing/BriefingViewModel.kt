@@ -5,18 +5,22 @@ import androidx.lifecycle.viewModelScope
 import app.vera.core.briefing.BriefingGenerator
 import app.vera.core.briefing.StoryAnswer
 import app.vera.core.briefing.StoryChat
-import app.vera.core.model.Article
 import app.vera.core.model.BriefingItem
 import app.vera.core.model.NewsSource
 import app.vera.core.model.Ownership
 import app.vera.core.model.UserProgress
-import app.vera.core.news.BriefingRanker
-import app.vera.core.news.NewsRepository
+import app.vera.core.briefing.CachedBriefing
+import app.vera.core.briefing.CachedCard
+import app.vera.core.briefing.slotForHour
+import app.vera.core.model.Article
 import app.vera.core.research.Leaning
 import app.vera.core.research.OutletDirectory
+import app.vera.data.BriefingRepository
 import app.vera.data.ProgressRepository
 import app.vera.data.ReadLogRepository
 import app.vera.data.ResearchInbox
+import app.vera.data.SelectedStory
+import app.vera.data.StoryDetailHolder
 import app.vera.data.SampleData
 import app.vera.data.SettingsRepository
 import app.vera.data.SourceCatalogProvider
@@ -44,21 +48,22 @@ data class BriefingUi(
 
 @HiltViewModel
 class BriefingViewModel @Inject constructor(
-    private val news: NewsRepository,
+    private val briefings: BriefingRepository,
     private val generator: BriefingGenerator,
-    private val settings: SettingsRepository,
-    private val catalog: SourceCatalogProvider,
     private val progressRepo: ProgressRepository,
     private val readLog: ReadLogRepository,
     private val inbox: ResearchInbox,
-    private val storyChat: StoryChat
+    private val storyChat: StoryChat,
+    private val storyHolder: StoryDetailHolder
 ) : ViewModel() {
 
     private var selectedSourceIds: List<String> = emptyList()
 
     data class UiState(
         val loading: Boolean = true,
-        val items: List<BriefingUi> = emptyList()
+        val items: List<BriefingUi> = emptyList(),
+        /** Showing yesterday's cards while a fresh briefing is generated. */
+        val stale: Boolean = false
     )
 
     private val _state = MutableStateFlow(UiState())
@@ -67,54 +72,51 @@ class BriefingViewModel @Inject constructor(
     val progress: StateFlow<UserProgress> = progressRepo.progress
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), UserProgress())
 
-    init { refresh() }
+    init { load() }
 
-    fun refresh() {
+    /** Show the cached briefing immediately; only generate if there isn't a fresh one. */
+    fun load(force: Boolean = false) {
         viewModelScope.launch {
-            _state.value = UiState(loading = true)
-            val enabled = settings.enabledSourceIds.first()
-            val interests = settings.interests.first().toList()
-            val sources = catalog.selected(enabled)
-            selectedSourceIds = sources.map { it.id }
-            val byId = sources.associateBy { it.id }
+            val slot = slotForHour(LocalTime.now().hour)
+            val now = System.currentTimeMillis()
+            selectedSourceIds = briefings.sourceIdsForSelection()
 
-            // Pull a wider pool, then let the ranker decide what actually deserves a slot.
-            val pool = sources.flatMap { src ->
-                runCatching { news.fetch(src).take(6) }.getOrDefault(emptyList())
-            }.ifEmpty { SampleData.articles }
-
-            val clusters = BriefingRanker.rank(
-                articles = pool,
-                outletName = { id -> byId[id]?.name ?: id },
-                countryOf = { id -> byId[id]?.country.orEmpty() },
-                interests = interests,
-                limit = MAX_STORIES
-            )
-
-            // Generate progressively: on-device inference is slow, so surface each card as it's ready
-            // instead of blocking on the whole batch.
-            val done = ArrayList<BriefingUi>(clusters.size)
-            for (cluster in clusters) {
-                val article = cluster.lead
-                val item = generator.generate(article)
-                val src = byId[article.sourceId]
-                val profile = OutletDirectory.forUrl(article.url)
-                done.add(
-                    BriefingUi(
-                        item = item,
-                        outlet = src?.name ?: profile.name,
-                        country = src?.country ?: "",
-                        ownership = src?.ownership ?: profile.ownership,
-                        leaning = profile.leaning,
-                        alsoReportedBy = cluster.alsoReportedBy,
-                        matchedInterests = cluster.matchedInterests
-                    )
-                )
-                _state.value = UiState(loading = false, items = done.toList())
+            if (!force) {
+                val cached = briefings.cached(slot)
+                if (cached != null && cached.isFresh(now)) {
+                    _state.value = UiState(loading = false, items = cached.cards.map(::toUi), stale = false)
+                    return@launch
+                }
+                // Show whatever we have while the fresh one is being written.
+                if (cached != null && cached.cards.isNotEmpty()) {
+                    _state.value = UiState(loading = false, items = cached.cards.map(::toUi), stale = true)
+                }
             }
-            if (done.isEmpty()) _state.value = UiState(loading = false, items = emptyList())
+
+            if (_state.value.items.isEmpty()) _state.value = UiState(loading = true)
+            briefings.generate(slot, now) { cards ->
+                _state.value = UiState(loading = false, items = cards.map(::toUi), stale = false)
+            }
         }
     }
+
+    fun refresh() = load(force = true)
+
+    private fun toUi(c: CachedCard) = BriefingUi(
+        item = BriefingItem(
+            article = Article(id = c.articleId, sourceId = "", title = c.displayTitle.ifBlank { c.title }, body = c.body, url = c.url),
+            plainSummary = c.summary,
+            whyItMatters = "",
+            manipulationWatch = c.manipulationWatch,
+            quiz = emptyList()
+        ),
+        outlet = c.outlet,
+        country = c.country,
+        ownership = runCatching { Ownership.valueOf(c.ownership) }.getOrDefault(Ownership.UNKNOWN),
+        leaning = runCatching { Leaning.valueOf(c.leaning) }.getOrDefault(Leaning.UNKNOWN),
+        alsoReportedBy = c.alsoReportedBy,
+        matchedInterests = c.matchedInterests
+    )
 
     /** Any real interaction with a story counts as engaging with the briefing (streak/XP once a day). */
     fun onEngaged() {
@@ -132,11 +134,25 @@ class BriefingViewModel @Inject constructor(
 
     suspend fun keyPoints(article: Article): List<String> {
         onEngaged()
-        return generator.keyPoints(article)
+        return generator.keyPoints(article, briefings.currentLanguage())
     }
 
-    suspend fun ask(article: Article, question: String, historyText: String): StoryAnswer =
-        storyChat.ask(article, question, historyText)
+    /** Hand a story to the full-screen detail view. */
+    fun openStory(ui: BriefingUi, keyPoints: List<String>) {
+        onEngaged()
+        storyHolder.open(
+            SelectedStory(
+                articleId = ui.item.article.id,
+                title = ui.item.article.title,
+                body = ui.item.article.body,
+                url = ui.item.article.url,
+                outlet = ui.outlet,
+                country = ui.country,
+                leaningLabel = if (ui.leaning == Leaning.UNKNOWN) "" else ui.leaning.label,
+                keyPoints = keyPoints
+            )
+        )
+    }
 
     fun slotTitle(): String =
         if (LocalTime.now().hour < 14) "Morning briefing" else "Evening briefing"

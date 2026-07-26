@@ -12,6 +12,7 @@ import app.vera.core.research.SearchProvider
 import app.vera.core.speech.SpeechService
 import app.vera.core.training.SiftCoach
 import app.vera.data.AndroidSpeechService
+import app.vera.data.BriefingCacheDao
 import app.vera.data.DuckDuckGoSearchProvider
 import app.vera.data.ModelManager
 import app.vera.data.NewsRepositoryImpl
@@ -45,10 +46,14 @@ object AppModule {
 
     @Provides @Singleton
     fun database(@ApplicationContext ctx: Context): VeraDatabase =
-        Room.databaseBuilder(ctx, VeraDatabase::class.java, "vera.db").build()
+        Room.databaseBuilder(ctx, VeraDatabase::class.java, "vera.db")
+            // The briefing cache is disposable; a schema bump can safely rebuild it.
+            .fallbackToDestructiveMigration()
+            .build()
 
     @Provides fun progressDao(db: VeraDatabase): ProgressDao = db.progressDao()
     @Provides fun readLogDao(db: VeraDatabase): ReadLogDao = db.readLogDao()
+    @Provides fun briefingCacheDao(db: VeraDatabase): BriefingCacheDao = db.briefingCacheDao()
 
     @Provides @Singleton
     fun progressRepository(dao: ProgressDao): ProgressRepository = ProgressRepository(dao)

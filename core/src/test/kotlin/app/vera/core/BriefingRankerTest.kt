@@ -79,6 +79,52 @@ class BriefingRankerTest {
         assertThat(BriefingRanker.mentions("The start of something", "art")).isFalse()
     }
 
+    @Test fun `one outlet cannot sweep the briefing just because it was fetched first`() {
+        // Reproduces a live bug: the pool is built source-by-source, so BBC's items all sat at the
+        // front and won every tie — the whole briefing came from one outlet.
+        val bbcHeadlines = listOf(
+            "Housing bill clears committee stage", "Ferry strike halts island crossings",
+            "Museum returns disputed bronze artefacts", "Rainfall records broken in the north")
+        val nprHeadlines = listOf(
+            "Federal reserve holds rates unchanged", "Wheat harvest beats early forecasts",
+            "Coastal restoration project wins funding", "Teacher shortage worsens in rural districts")
+        val ardHeadlines = listOf(
+            "Autobahn tolls debated in parliament", "Solar capacity overtakes coal generation",
+            "Bavarian brewery wins export award", "Rail operator apologises for delays")
+        val pool = buildList {
+            bbcHeadlines.forEachIndexed { i, t -> add(a("bbc$i", "bbc", t)) }
+            nprHeadlines.forEachIndexed { i, t -> add(a("npr$i", "npr", t)) }
+            ardHeadlines.forEachIndexed { i, t -> add(a("ard$i", "ard", t)) }
+        }
+        val out = BriefingRanker.rank(pool, ::name, ::country, limit = 5)
+        val outlets = out.map { name(it.lead.sourceId) }.toSet()
+
+        assertThat(out).hasSize(5)
+        assertThat(outlets.size).isAtLeast(3)                 // all three outlets represented
+        assertThat(outlets).containsAtLeast("BBC", "NPR", "Tagesschau")
+    }
+
+    @Test fun `a single available outlet still fills the briefing`() {
+        val pool = listOf(
+            "Harbour redevelopment plan approved", "Flu vaccination drive begins early",
+            "Cycling network expands into suburbs", "Historic cinema reopens after refit",
+            "Seabird colony returns to cliffs", "Bridge inspection closes two lanes"
+        ).mapIndexed { i, t -> a("bbc$i", "bbc", t) }
+        assertThat(BriefingRanker.rank(pool, ::name, ::country, limit = 5)).hasSize(5)
+    }
+
+    @Test fun `corroborated stories still outrank the diversity cap`() {
+        val pool = buildList {
+            add(a("bbc1", "bbc", "Global summit agrees landmark climate finance deal"))
+            add(a("npr1", "npr", "Landmark climate finance deal agreed at global summit"))
+            add(a("ard1", "ard", "Global summit agrees landmark climate finance deal"))
+            repeat(4) { add(a("bbc$it", "bbc", "Minor domestic filler story number $it")) }
+        }
+        val out = BriefingRanker.rank(pool, ::name, ::country, limit = 3)
+        assertThat(out.first().lead.title).contains("climate finance")
+        assertThat(out.first().outletCount).isEqualTo(3)
+    }
+
     @Test fun `distinct stories are never merged`() {
         val articles = listOf(
             a("1", "bbc", "Election results announced in northern province"),

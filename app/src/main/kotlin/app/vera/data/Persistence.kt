@@ -31,6 +31,23 @@ data class ReadLogEntity(
     val epochDay: Long
 )
 
+/** Pre-rendered briefings, keyed by slot ("MORNING"/"EVENING"). */
+@Entity(tableName = "briefing_cache")
+data class BriefingCacheEntity(
+    @PrimaryKey val slot: String,
+    val payload: String,
+    val generatedAtEpochMs: Long
+)
+
+@Dao
+interface BriefingCacheDao {
+    @Query("SELECT * FROM briefing_cache WHERE slot = :slot")
+    suspend fun get(slot: String): BriefingCacheEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(entity: BriefingCacheEntity)
+}
+
 @Dao
 interface ProgressDao {
     @Query("SELECT * FROM progress WHERE id = 0")
@@ -52,10 +69,15 @@ interface ReadLogDao {
     suspend fun all(): List<ReadLogEntity>
 }
 
-@Database(entities = [ProgressEntity::class, ReadLogEntity::class], version = 1, exportSchema = false)
+@Database(
+    entities = [ProgressEntity::class, ReadLogEntity::class, BriefingCacheEntity::class],
+    version = 2,
+    exportSchema = false
+)
 abstract class VeraDatabase : RoomDatabase() {
     abstract fun progressDao(): ProgressDao
     abstract fun readLogDao(): ReadLogDao
+    abstract fun briefingCacheDao(): BriefingCacheDao
 }
 
 private fun ProgressEntity.toModel() =

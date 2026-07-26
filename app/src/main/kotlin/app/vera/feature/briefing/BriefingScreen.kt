@@ -12,10 +12,10 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -69,6 +69,7 @@ fun BriefingScreen(
     onOpenSources: () -> Unit,
     onOpenResearch: () -> Unit,
     onOpenAiSettings: () -> Unit,
+    onOpenStory: () -> Unit,
     viewModel: BriefingViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -116,7 +117,7 @@ fun BriefingScreen(
                         onGetSources = { viewModel.requestResearch(ui.item.article); onOpenResearch() },
                         onReadIt = { viewModel.onEngaged(); openUrl(context, ui.item.article.url) },
                         onKeyPoints = { viewModel.keyPoints(ui.item.article) },
-                        onAsk = { q, history -> viewModel.ask(ui.item.article, q, history) }
+                        onOpenFull = { pts -> viewModel.openStory(ui, pts); onOpenStory() }
                     )
                 }
             }
@@ -130,12 +131,11 @@ private fun BriefingCard(
     onGetSources: () -> Unit,
     onReadIt: () -> Unit,
     onKeyPoints: suspend () -> List<String>,
-    onAsk: suspend (question: String, history: String) -> app.vera.core.briefing.StoryAnswer
+    onOpenFull: (List<String>) -> Unit
 ) {
     val item = ui.item
     var points by remember(item.article.id) { mutableStateOf<List<String>?>(null) }
     var loading by remember(item.article.id) { mutableStateOf(false) }
-    var showFull by remember(item.article.id) { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
     Card(
@@ -211,7 +211,7 @@ private fun BriefingCard(
                 Column(Modifier.padding(top = 10.dp)) {
                     Text("KEY POINTS", color = Amber, fontSize = 10.5.sp, fontWeight = FontWeight.Bold)
                     pts.forEach { Bullet(it) }
-                    TextButton(onClick = { showFull = true }, modifier = Modifier.padding(top = 4.dp)) {
+                    TextButton(onClick = { onOpenFull(pts) }, modifier = Modifier.padding(top = 4.dp)) {
                         Icon(Icons.Filled.Fullscreen, contentDescription = null, tint = Amber,
                             modifier = Modifier.size(18.dp))
                         Spacer(Modifier.size(6.dp))
@@ -222,9 +222,6 @@ private fun BriefingCard(
         }
     }
 
-    if (showFull) {
-        StoryDetailDialog(ui = ui, keyPoints = points.orEmpty(), onAsk = onAsk, onClose = { showFull = false })
-    }
 }
 
 @Composable
@@ -247,123 +244,6 @@ private fun Bullet(text: String) {
     Row(Modifier.padding(top = 6.dp)) {
         Text("•", color = Amber, fontSize = 14.sp, modifier = Modifier.padding(end = 8.dp))
         Text(text, color = MaterialTheme.colorScheme.onSurface, fontSize = 13.5.sp, lineHeight = 19.sp)
-    }
-}
-
-private data class ChatMsg(val fromUser: Boolean, val text: String, val sources: List<String> = emptyList())
-
-@Composable
-private fun StoryDetailDialog(
-    ui: BriefingUi,
-    keyPoints: List<String>,
-    onAsk: suspend (question: String, history: String) -> app.vera.core.briefing.StoryAnswer,
-    onClose: () -> Unit
-) {
-    Dialog(
-        onDismissRequest = onClose,
-        properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
-    ) {
-        Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-            val messages = remember { mutableStateListOf<ChatMsg>() }
-            var input by remember { mutableStateOf("") }
-            var sending by remember { mutableStateOf(false) }
-            val scope = rememberCoroutineScope()
-
-            fun send() {
-                val q = input.trim()
-                if (q.isEmpty() || sending) return
-                val history = messages.joinToString("\n") { (if (it.fromUser) "USER" else "VERA") + ": " + it.text }
-                messages.add(ChatMsg(true, q))
-                input = ""
-                sending = true
-                scope.launch {
-                    val a = onAsk(q, history)
-                    messages.add(ChatMsg(false, a.text, a.extraSources))
-                    sending = false
-                }
-            }
-
-            Column(Modifier.fillMaxSize().systemBarsPadding().imePadding()) {
-                // Top bar
-                Row(
-                    Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 12.dp, bottom = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("Story detail", color = MaterialTheme.colorScheme.onBackground,
-                        fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
-                    IconButton(onClick = onClose) {
-                        Icon(Icons.Filled.Close, contentDescription = "Close", tint = MaterialTheme.colorScheme.onBackground)
-                    }
-                }
-
-                // Scrollable content
-                Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
-                    OutletRow(ui)
-                    Text(ui.item.article.title, color = MaterialTheme.colorScheme.onBackground,
-                        fontSize = 20.sp, fontWeight = FontWeight.Bold, lineHeight = 26.sp)
-
-                    Text("KEY POINTS", color = Amber, fontSize = 11.sp, fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(top = 16.dp, bottom = 2.dp))
-                    if (keyPoints.isEmpty()) {
-                        Text(ui.item.plainSummary, color = MaterialTheme.colorScheme.onSurface, fontSize = 14.sp)
-                    } else {
-                        keyPoints.forEach { Bullet(it) }
-                    }
-
-                    Text("ASK ABOUT THIS STORY", color = Violet, fontSize = 11.sp, fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(top = 22.dp, bottom = 6.dp))
-                    if (messages.isEmpty()) {
-                        Text("Ask Vera anything about this story — answers come from the article, on-device.",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.5.sp, lineHeight = 17.sp)
-                    }
-                    messages.forEach { m -> ChatBubble(m) }
-                    if (sending) {
-                        Row(Modifier.padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                            CircularProgressIndicator(color = Amber, strokeWidth = 2.dp, modifier = Modifier.size(16.dp))
-                            Spacer(Modifier.size(10.dp))
-                            Text("Vera is thinking…", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.5.sp)
-                        }
-                    }
-                    Spacer(Modifier.size(16.dp))
-                }
-
-                // Input row
-                Row(
-                    Modifier.fillMaxWidth().heightIn(min = 76.dp).padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    OutlinedTextField(
-                        value = input,
-                        onValueChange = { input = it },
-                        placeholder = { Text("Ask a follow-up…", fontSize = 13.sp) },
-                        modifier = Modifier.weight(1f),
-                        enabled = !sending
-                    )
-                    IconButton(onClick = { send() }, enabled = !sending && input.isNotBlank()) {
-                        Icon(Icons.Filled.Send, contentDescription = "Send",
-                            tint = if (input.isNotBlank()) Amber else MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun ChatBubble(m: ChatMsg) {
-    val bg = if (m.fromUser) Violet.copy(alpha = 0.16f) else MaterialTheme.colorScheme.surface
-    Box(Modifier.fillMaxWidth().padding(top = 8.dp),
-        contentAlignment = if (m.fromUser) Alignment.CenterEnd else Alignment.CenterStart) {
-        Column(Modifier.clip(RoundedCornerShape(12.dp)).background(bg).padding(horizontal = 12.dp, vertical = 9.dp)) {
-            Text(m.text, color = MaterialTheme.colorScheme.onSurface, fontSize = 13.5.sp, lineHeight = 19.sp)
-            if (m.sources.isNotEmpty()) {
-                Text("🔎 also checked: ${m.sources.joinToString(", ")}",
-                    color = Amber, fontSize = 11.sp, modifier = Modifier.padding(top = 6.dp))
-                Text("AI answers can be wrong or out of date — open the sources and check.",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.5.sp,
-                    lineHeight = 14.sp, modifier = Modifier.padding(top = 4.dp))
-            }
-        }
     }
 }
 

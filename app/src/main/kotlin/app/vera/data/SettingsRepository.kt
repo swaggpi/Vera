@@ -2,8 +2,10 @@ package app.vera.data
 
 import android.content.Context
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import app.vera.core.model.AppLanguage
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -14,6 +16,7 @@ class SettingsRepository(private val context: Context) {
 
     private val enabledKey = stringSetPreferencesKey("enabled_source_ids")
     private val interestsKey = stringSetPreferencesKey("topic_interests")
+    private val languageKey = stringPreferencesKey("output_language")
 
     val enabledSourceIds: Flow<Set<String>> =
         context.dataStore.data.map { it[enabledKey] ?: emptySet() }
@@ -21,6 +24,14 @@ class SettingsRepository(private val context: Context) {
     /** Topics the reader wants more of ("football", "science", "Kenya"). Empty = no preference. */
     val interests: Flow<Set<String>> =
         context.dataStore.data.map { it[interestsKey] ?: emptySet() }
+
+    /** The language Vera writes summaries, key points and answers in. */
+    val language: Flow<AppLanguage> =
+        context.dataStore.data.map { AppLanguage.fromCode(it[languageKey]) }
+
+    suspend fun setLanguage(lang: AppLanguage) {
+        context.dataStore.edit { it[languageKey] = lang.code }
+    }
 
     suspend fun toggleSource(id: String, enabled: Boolean) {
         context.dataStore.edit { prefs ->

@@ -1,9 +1,11 @@
 package app.vera.core.briefing
 
 import app.vera.core.llm.LlmEngine
+import app.vera.core.model.AppLanguage
 import app.vera.core.model.Article
 import app.vera.core.model.BriefingItem
 import app.vera.core.model.QuizQuestion
+import app.vera.core.model.writeInInstruction
 import kotlin.math.abs
 
 /**
@@ -14,21 +16,22 @@ import kotlin.math.abs
  */
 class BriefingGenerator(private val llm: LlmEngine) {
 
-    suspend fun generate(article: Article): BriefingItem = BriefingItem(
+    suspend fun generate(article: Article, language: AppLanguage = AppLanguage.ENGLISH): BriefingItem = BriefingItem(
         article = article,
-        plainSummary = summarize(article),
+        plainSummary = summarize(article, language),
         whyItMatters = "Stories like this spread fast — pause before you share.",
         manipulationWatch = "Check the source and the date, and look for independent coverage.",
         quiz = listOf(question(article))
     )
 
-    internal suspend fun summarize(article: Article): String {
+    internal suspend fun summarize(article: Article, language: AppLanguage = AppLanguage.ENGLISH): String {
         val raw = runCatching {
             llm.generate(
                 prompt = "Summarize this news story in two short, plain sentences for a young reader. " +
-                    "Reply with the summary only.\nTITLE: ${article.title}\nTEXT: ${article.body.take(900)}",
+                    "Reply with the summary only. ${language.writeInInstruction()}\n" +
+                    "TITLE: ${article.title}\nTEXT: ${article.body.take(900)}",
                 system = "You summarize news neutrally and accurately. No preamble, no markdown, no quotes.",
-                maxTokens = 200
+                maxTokens = 220
             )
         }.getOrNull()?.trim()?.removeSurrounding("\"")?.trim()
 
@@ -36,12 +39,40 @@ class BriefingGenerator(private val llm: LlmEngine) {
         else excerpt(article)
     }
 
+    /**
+     * The headline rendered in the reader's language. Feeds publish in their own language, so
+     * without this a briefing mixes German, French and English headlines together.
+     */
+    suspend fun localizedTitle(article: Article, language: AppLanguage): String {
+        if (language == AppLanguage.DEVICE || language == AppLanguage.ENGLISH) {
+            // English is the common feed language; only translate when the model is confident.
+            if (language == AppLanguage.ENGLISH && looksEnglish(article.title)) return article.title
+        }
+        val raw = runCatching {
+            llm.generate(
+                prompt = "Translate this news headline. Reply with the translated headline only, no quotes, " +
+                    "no explanation. If it is already in the target language, repeat it unchanged. " +
+                    "${language.writeInInstruction()}\nHEADLINE: ${article.title}",
+                system = "You translate headlines faithfully and concisely. Output the headline only.",
+                maxTokens = 90
+            )
+        }.getOrNull()?.trim()?.removeSurrounding("\"")?.trim()
+
+        // Guard against the model rambling or refusing.
+        return if (raw != null && raw.length in 8..220 && !raw.contains("\n") && !raw.startsWith("{")) raw
+        else article.title
+    }
+
+    private fun looksEnglish(s: String): Boolean =
+        Regex("\\b(the|and|of|in|to|for|after|says|with)\\b", RegexOption.IGNORE_CASE).containsMatchIn(s)
+
     /** The must-know points of a story (the "More details" action), as short bullets. */
-    suspend fun keyPoints(article: Article): List<String> {
+    suspend fun keyPoints(article: Article, language: AppLanguage = AppLanguage.ENGLISH): List<String> {
         val raw = runCatching {
             llm.generate(
                 prompt = "List the 3 to 5 most important points a reader must know about this story. " +
-                    "One short sentence each, most important first. Use only the information given.\n" +
+                    "One short sentence each, most important first. Use only the information given. " +
+                    "${language.writeInInstruction()}\n" +
                     "TITLE: ${article.title}\nTEXT: ${article.body.take(1400)}",
                 system = "You extract key facts neutrally. Reply as a plain bulleted list, one point per line. No preamble.",
                 maxTokens = 300
